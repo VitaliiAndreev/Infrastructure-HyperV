@@ -14,6 +14,12 @@
       - Invoke-WithVmFileServer : runs a script block with a live HTTP file
                                   server bound to the Hyper-V internal switch
       - Add-VmFileServerFile    : stages a host file and returns its VM URL
+      - Test-VmSshPort          : single-shot TCP probe of an SSH port; the
+                                  ICMP-ping replacement for callers that
+                                  intend to SSH immediately afterwards
+      - Wait-VmSshReady         : polls Test-VmSshPort until the port comes
+                                  up or a deadline expires; used to gate
+                                  post-boot/reboot SSH work
 
     Private helpers (Assert-SshNetLoaded, Get-VmSwitchHostIp,
     Start-VmFileServer, Stop-VmFileServer) are dot-sourced below but not
@@ -34,6 +40,8 @@ $ErrorActionPreference = 'Stop'
 . "$PSScriptRoot\Public\Invoke-SshClientCommand.ps1"
 . "$PSScriptRoot\Public\Invoke-WithVmFileServer.ps1"
 . "$PSScriptRoot\Public\New-VmSshClient.ps1"
+. "$PSScriptRoot\Public\Test-VmSshPort.ps1"
+. "$PSScriptRoot\Public\Wait-VmSshReady.ps1"
 
 # Export-ModuleMember controls what is actually callable after Import-Module.
 # It takes precedence over FunctionsToExport in the psd1 at runtime, so both
@@ -45,5 +53,7 @@ Export-ModuleMember -Function @(
     'Add-VmFileServerFile',
     'Invoke-SshClientCommand',
     'Invoke-WithVmFileServer',
-    'New-VmSshClient'
+    'New-VmSshClient',
+    'Test-VmSshPort',
+    'Wait-VmSshReady'
 )

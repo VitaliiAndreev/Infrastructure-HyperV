@@ -16,7 +16,9 @@
         'Add-VmFileServerFile',
         'Invoke-SshClientCommand',
         'Invoke-WithVmFileServer',
-        'New-VmSshClient'
+        'New-VmSshClient',
+        'Test-VmSshPort',
+        'Wait-VmSshReady'
     )
     CmdletsToExport   = @()
     AliasesToExport   = @()
