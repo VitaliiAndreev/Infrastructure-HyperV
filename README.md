@@ -27,6 +27,8 @@ It is published to PSGallery and consumed by other repos.
 |---|---|
 | `New-VmSshClient` | Creates and connects a `Renci.SshNet.SshClient` using password authentication. Caller owns Disconnect/Dispose. |
 | `Invoke-SshClientCommand` | Runs a shell command on a connected `SshClient` and returns `{ Output, Error, ExitStatus }`. |
+| `Test-VmSshPort` | Single-shot TCP probe of an SSH port. Returns `$true` if the port accepted a connection within the timeout; strict superset of an ICMP ping for "should I SSH?". |
+| `Wait-VmSshReady` | Polls `Test-VmSshPort` until the port comes up or a deadline expires. Returns `$true` on success, `$false` on timeout - never throws on the network path. |
 | `Invoke-WithVmFileServer` | Runs a script block with a live HTTP file server bound to the Hyper-V internal switch; guarantees cleanup in a `finally`. |
 | `Add-VmFileServerFile` | Stages a host-side file in the live server and returns its VM-reachable download URL. Idempotent by name + byte count. |
 
