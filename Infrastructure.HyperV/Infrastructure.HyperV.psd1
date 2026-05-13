@@ -14,6 +14,8 @@
     # run-unit-tests action enforces this.
     FunctionsToExport = @(
         'Add-VmFileServerFile',
+        'Assert-VmFilesField',
+        'Copy-VmFiles',
         'Invoke-SshClientCommand',
         'Invoke-WithVmFileServer',
         'New-VmSshClient',
