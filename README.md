@@ -33,6 +33,7 @@ It is published to PSGallery and consumed by other repos.
 | `Add-VmFileServerFile` | Stages a host-side file in the live server and returns its VM-reachable download URL. Idempotent by name + byte count. |
 | `Copy-VmFiles` | Per-entry transport: stages each `{ Source, Target, Owner?, Mode? }` via the file server, then `mkdir -p` + `curl -fsSL -o` + `chown` + `chmod` under sudo on the VM. |
 | `Copy-VmFilesByPattern` | Wildcard front-end to `Copy-VmFiles`. Expands a host-side pattern, validates host-side (no SSH on rejection), then forwards to `Copy-VmFiles`. |
+| `Assert-VmFilesField` | Shared schema validator for a `files` array on a VM definition. Single-form entries (`{source, target, ...}`) by default; bulk-form entries (`{pattern, targetDir, recurse?, preserveRelativePath?}`) under `-AllowBulkEntries` for callers wired to `Copy-VmFilesByPattern`. Consumers extend the single form via `-AllowedSubFields` / `-PostEntryValidator`. |
 
 SSH helpers require Posh-SSH's bundled `Renci.SshNet.dll` to be loaded into
 the session - `Invoke-ModuleInstall -ModuleName 'Posh-SSH'` is the standard
@@ -41,7 +42,7 @@ way to do that. The module fails fast with an actionable message otherwise.
 ## Usage
 
 ```powershell
-Install-Module -Name Infrastructure.HyperV -MinimumVersion 0.4.0
+Install-Module -Name Infrastructure.HyperV -MinimumVersion 0.5.0
 Import-Module Infrastructure.HyperV
 ```
 
