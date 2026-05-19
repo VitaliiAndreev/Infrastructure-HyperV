@@ -121,14 +121,17 @@ Describe 'Copy-VmFilesByPattern (integration)' {
             -Owner     $expectedOwner `
             -Mode      $expectedMode
 
-        # %a is the octal mode; %U:%G is owner:group. Sorting by name keeps
-        # the assertion stable regardless of find's traversal order.
+        # %m is the octal mode (%a is atime in find -printf); %u:%g are the
+        # symbolic user/group names (%U:%G are numeric ids). Sorting by name
+        # keeps the assertion stable regardless of find's traversal order.
+        # Recurse without PreserveRelativePath flattens 'sub/two.txt' to
+        # 'two.txt' under TargetDir, hence the basenames-only expectation.
         $stat = Invoke-SshQuery (
-            "find '$Script:VmTargetDir' -type f -printf '%P %a %U:%G\n' | sort")
+            "find '$Script:VmTargetDir' -type f -printf '%P %m %u:%g\n' | sort")
 
         $expected = @(
             "one.txt 640 $expectedOwner",
-            "sub/two.txt 640 $expectedOwner"
+            "two.txt 640 $expectedOwner"
         ) -join "`n"
 
         $stat | Should -Be $expected
