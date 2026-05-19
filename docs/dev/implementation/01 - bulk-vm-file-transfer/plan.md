@@ -15,7 +15,7 @@ committable steps that each carry their own tests.
 
 The feature splits into two layers: a pure host-side resolver +
 validator, and a thin public wrapper that hands its output to the
-existing [Copy-VmFiles](../../../../Infrastructure.HyperV/Public/Copy-VmFiles.ps1).
+existing [Copy-VmFiles](../../../../Infrastructure.HyperV/Public/FileTransfer/Copy-VmFiles.ps1).
 Per [problem.md design decisions](problem.md#design-decisions), all
 shape checks run in the resolver before any transport step.
 
@@ -57,7 +57,7 @@ without a VM and keeps the public wrapper trivial.
 
 **Files.**
 
-- New: `Infrastructure.HyperV/Private/Resolve-VmFileEntries.ps1`
+- New: `Infrastructure.HyperV/Private/FileTransfer/Resolve-VmFileEntries.ps1`
 - New: `Tests/Resolve-VmFileEntries.Tests.ps1`
 
 **Behaviour.**
@@ -74,7 +74,7 @@ without a VM and keeps the public wrapper trivial.
   2. No duplicate VM target paths (catches flatten basename
      collisions and `-PreserveRelativePath` collapses).
 - Returns an array of `[PSCustomObject]` entries shaped exactly as
-  [Copy-VmFiles](../../../../Infrastructure.HyperV/Public/Copy-VmFiles.ps1)
+  [Copy-VmFiles](../../../../Infrastructure.HyperV/Public/FileTransfer/Copy-VmFiles.ps1)
   expects: `Source`, `Target`, `Owner`, `Mode`.
 
 **Tests (unit).** Tests dot-source the helper directly, with no
@@ -122,7 +122,7 @@ same commit because the repo's shared `Module.Tests.ps1` enforces
 
 **Files.**
 
-- New: `Infrastructure.HyperV/Public/Copy-VmFilesByPattern.ps1`
+- New: `Infrastructure.HyperV/Public/FileTransfer/Copy-VmFilesByPattern.ps1`
 - Edit: `Infrastructure.HyperV/Infrastructure.HyperV.psd1`
   (add to `FunctionsToExport`).
 - Edit: `Infrastructure.HyperV/Infrastructure.HyperV.psm1`
@@ -209,7 +209,7 @@ deterministically by Step 1's unit tests.
    files; the directories are not created as empty entries.
 
 **Verification on the VM** (via the existing
-[Invoke-SshClientCommand](../../../../Infrastructure.HyperV/Public/Invoke-SshClientCommand.ps1)):
+[Invoke-SshClientCommand](../../../../Infrastructure.HyperV/Public/Ssh/Invoke-SshClientCommand.ps1)):
 `stat -c '%a %U:%G %n'` for mode + owner, `cat` (or `sha256sum`)
 for contents, `find` for the expected target tree.
 

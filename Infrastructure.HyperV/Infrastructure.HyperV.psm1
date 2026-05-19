@@ -31,25 +31,31 @@
     Start-VmFileServer, Stop-VmFileServer) are dot-sourced below but not
     exported.
 
-    Each function lives in its own file under Public\ or Private\ and is
-    dot-sourced below so diffs stay focused on a single function per commit.
+    Functions are grouped by concern under Public\ and Private\ into three
+    subfolders that share a name across the two trees:
+      - Ssh\          : SSH client + port-probe primitives.
+      - FileServer\   : host-side HTTP file server used to stage VM downloads.
+      - FileTransfer\ : VM-side transport on top of Ssh + FileServer.
+    Each function still lives in its own file so diffs stay focused on a
+    single function per commit.
 #>
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-. "$PSScriptRoot\Private\Assert-SshNetLoaded.ps1"
-. "$PSScriptRoot\Private\Get-VmSwitchHostIp.ps1"
-. "$PSScriptRoot\Private\Start-VmFileServer.ps1"
-. "$PSScriptRoot\Private\Stop-VmFileServer.ps1"
-. "$PSScriptRoot\Public\Add-VmFileServerFile.ps1"
-. "$PSScriptRoot\Public\Assert-VmFilesField.ps1"
-. "$PSScriptRoot\Public\Copy-VmFiles.ps1"
-. "$PSScriptRoot\Public\Invoke-SshClientCommand.ps1"
-. "$PSScriptRoot\Public\Invoke-WithVmFileServer.ps1"
-. "$PSScriptRoot\Public\New-VmSshClient.ps1"
-. "$PSScriptRoot\Public\Test-VmSshPort.ps1"
-. "$PSScriptRoot\Public\Wait-VmSshReady.ps1"
+. "$PSScriptRoot\Private\Ssh\Assert-SshNetLoaded.ps1"
+. "$PSScriptRoot\Private\FileServer\Get-VmSwitchHostIp.ps1"
+. "$PSScriptRoot\Private\FileServer\Start-VmFileServer.ps1"
+. "$PSScriptRoot\Private\FileServer\Stop-VmFileServer.ps1"
+. "$PSScriptRoot\Private\FileTransfer\Resolve-VmFileEntries.ps1"
+. "$PSScriptRoot\Public\Ssh\Invoke-SshClientCommand.ps1"
+. "$PSScriptRoot\Public\Ssh\New-VmSshClient.ps1"
+. "$PSScriptRoot\Public\Ssh\Test-VmSshPort.ps1"
+. "$PSScriptRoot\Public\Ssh\Wait-VmSshReady.ps1"
+. "$PSScriptRoot\Public\FileServer\Add-VmFileServerFile.ps1"
+. "$PSScriptRoot\Public\FileServer\Invoke-WithVmFileServer.ps1"
+. "$PSScriptRoot\Public\FileTransfer\Assert-VmFilesField.ps1"
+. "$PSScriptRoot\Public\FileTransfer\Copy-VmFiles.ps1"
 
 # Export-ModuleMember controls what is actually callable after Import-Module.
 # It takes precedence over FunctionsToExport in the psd1 at runtime, so both

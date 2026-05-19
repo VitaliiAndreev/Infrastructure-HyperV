@@ -12,7 +12,7 @@
 ## Context
 
 `Infrastructure.HyperV` already exposes a transport primitive,
-[Copy-VmFiles](../../../../Infrastructure.HyperV/Public/Copy-VmFiles.ps1),
+[Copy-VmFiles](../../../../Infrastructure.HyperV/Public/FileTransfer/Copy-VmFiles.ps1),
 that copies host files to a Hyper-V VM over the local file server +
 SSH. It is deliberately minimal: the caller supplies an explicit list
 of `{ Source; Target; Owner?; Mode? }` entries, one entry per file.
@@ -44,7 +44,7 @@ Add a new public function in `Infrastructure.HyperV` that:
     keeps its path relative to the resolved source root under
     `<TargetDir>`. Mirrors `rsync` / `scp -r` behaviour.
 - Delegates the actual transfer to the existing
-  [Copy-VmFiles](../../../../Infrastructure.HyperV/Public/Copy-VmFiles.ps1)
+  [Copy-VmFiles](../../../../Infrastructure.HyperV/Public/FileTransfer/Copy-VmFiles.ps1)
   primitive by translating resolved matches into its entry shape.
   This keeps the transport contract intact and avoids a second SSH
   code path.
