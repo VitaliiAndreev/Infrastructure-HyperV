@@ -16,6 +16,7 @@
         'Add-VmFileServerFile',
         'Assert-VmFilesField',
         'Copy-VmFiles',
+        'Copy-VmFilesByPattern',
         'Invoke-SshClientCommand',
         'Invoke-WithVmFileServer',
         'New-VmSshClient',

@@ -17,6 +17,9 @@
       - Copy-VmFiles            : per-entry transport (Add-VmFileServerFile +
                                   curl -o + chown + chmod under sudo); each
                                   entry is { Source, Target, Owner?, Mode? }
+      - Copy-VmFilesByPattern   : wildcard front-end to Copy-VmFiles; expands
+                                  a host-side pattern, validates host-side,
+                                  then forwards to Copy-VmFiles
       - Assert-VmFilesField     : shared schema validator for a 'files' array
                                   on a VM definition; consumers extend via
                                   -AllowedSubFields and -PostEntryValidator
@@ -56,6 +59,7 @@ $ErrorActionPreference = 'Stop'
 . "$PSScriptRoot\Public\FileServer\Invoke-WithVmFileServer.ps1"
 . "$PSScriptRoot\Public\FileTransfer\Assert-VmFilesField.ps1"
 . "$PSScriptRoot\Public\FileTransfer\Copy-VmFiles.ps1"
+. "$PSScriptRoot\Public\FileTransfer\Copy-VmFilesByPattern.ps1"
 
 # Export-ModuleMember controls what is actually callable after Import-Module.
 # It takes precedence over FunctionsToExport in the psd1 at runtime, so both
@@ -67,6 +71,7 @@ Export-ModuleMember -Function @(
     'Add-VmFileServerFile',
     'Assert-VmFilesField',
     'Copy-VmFiles',
+    'Copy-VmFilesByPattern',
     'Invoke-SshClientCommand',
     'Invoke-WithVmFileServer',
     'New-VmSshClient',
