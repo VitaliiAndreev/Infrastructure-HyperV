@@ -27,6 +27,13 @@
                                   array on a VM definition; fixed rule set
                                   (POSIX-identifier name, non-empty value
                                   with no LF/CR/NUL, no duplicate names)
+      - Set-VmEnvironmentVariables : writes a sentinel-delimited managed
+                                  block of NAME="VALUE" lines to
+                                  /etc/environment on the VM. Reconciles
+                                  against the existing block and skips
+                                  when unchanged (default);
+                                  -NoSkipUnchanged forces a write. Empty
+                                  entries array removes the managed block
       - Test-VmSshPort          : single-shot TCP probe of an SSH port; the
                                   ICMP-ping replacement for callers that
                                   intend to SSH immediately afterwards
@@ -66,6 +73,7 @@ $ErrorActionPreference = 'Stop'
 # Public functions:
 
 . "$PSScriptRoot\Public\EnvVars\Assert-VmEnvVarsField.ps1"
+. "$PSScriptRoot\Public\EnvVars\Set-VmEnvironmentVariables.ps1"
 
 . "$PSScriptRoot\Public\FileServer\Add-VmFileServerFile.ps1"
 . "$PSScriptRoot\Public\FileServer\Invoke-WithVmFileServer.ps1"
@@ -94,6 +102,7 @@ Export-ModuleMember -Function @(
     'Invoke-SshClientCommand',
     'Invoke-WithVmFileServer',
     'New-VmSshClient',
+    'Set-VmEnvironmentVariables',
     'Test-VmSshPort',
     'Wait-VmSshReady'
 )
