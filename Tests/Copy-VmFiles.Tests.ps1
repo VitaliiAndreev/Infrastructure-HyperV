@@ -113,6 +113,32 @@ Describe 'Copy-VmFiles' {
         }
     }
 
+    It 'honours Owner and Mode when the entry is a hashtable' {
+        # Hashtable shape is part of the contract (see .PARAMETER Entries).
+        # PSCustomObject coverage above does NOT exercise it because the
+        # hashtable adapter resolves dot-access via a different path than
+        # PSObject.Properties enumeration - a guard there used to silently
+        # drop the Owner / Mode keys on every hashtable caller, so this
+        # case is pinned explicitly.
+        $entries = @(
+            @{
+                Source = 'C:\src\a'
+                Target = '/opt/a'
+                Owner  = 'appuser:appgroup'
+                Mode   = '0640'
+            }
+        )
+
+        Copy-VmFiles -SshClient $script:FakeSshClient `
+                     -Server    $script:FakeServer `
+                     -Entries   $entries
+
+        Should -Invoke Invoke-SshClientCommand -ParameterFilter {
+            $Command -match "owner='appuser:appgroup'" -and
+            $Command -match "mode='0640'"
+        }
+    }
+
     It 'references the staged URL in the curl command' {
         $entries = @(
             [PSCustomObject]@{ Source = 'C:\src\a.bin'; Target = '/opt/a.bin' }

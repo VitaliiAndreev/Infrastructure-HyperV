@@ -97,8 +97,15 @@ function Copy-VmFiles {
         $target = $entry.Target
         # Defaults match the system-level read-only file shape. Callers
         # override per-entry by setting Owner / Mode on the entry object.
-        $owner  = if ($entry.PSObject.Properties['Owner'] -and $entry.Owner) { $entry.Owner } else { 'root:root' }
-        $mode   = if ($entry.PSObject.Properties['Mode']  -and $entry.Mode)  { $entry.Mode  } else { '0644' }
+        # Simple truthiness on the property access handles both shapes -
+        # PSCustomObject returns $null for absent properties, and the
+        # hashtable adapter returns $null for absent keys. A PSObject-
+        # .Properties guard does NOT work for hashtables: the adapter
+        # exposes keys via dot-access but does NOT enumerate them through
+        # PSObject.Properties, so a guard there would silently fall back
+        # to the default for every hashtable caller.
+        $owner = if ($entry.Owner) { $entry.Owner } else { 'root:root' }
+        $mode  = if ($entry.Mode)  { $entry.Mode  } else { '0644' }
 
         $url = Add-VmFileServerFile -Server $Server -LocalPath $source
 
