@@ -23,6 +23,17 @@
       - Assert-VmFilesField     : shared schema validator for a 'files' array
                                   on a VM definition; consumers extend via
                                   -AllowedSubFields and -PostEntryValidator
+      - Assert-VmEnvVarsField   : shared schema validator for an 'envVars'
+                                  array on a VM definition; fixed rule set
+                                  (POSIX-identifier name, non-empty value
+                                  with no LF/CR/NUL, no duplicate names)
+      - Set-VmEnvironmentVariables : writes a sentinel-delimited managed
+                                  block of NAME="VALUE" lines to
+                                  /etc/environment on the VM. Reconciles
+                                  against the existing block and skips
+                                  when unchanged (default);
+                                  -NoSkipUnchanged forces a write. Empty
+                                  entries array removes the managed block
       - Test-VmSshPort          : single-shot TCP probe of an SSH port; the
                                   ICMP-ping replacement for callers that
                                   intend to SSH immediately afterwards
@@ -34,11 +45,12 @@
     Start-VmFileServer, Stop-VmFileServer) are dot-sourced below but not
     exported.
 
-    Functions are grouped by concern under Public\ and Private\ into three
+    Functions are grouped by concern under Public\ and Private\ into
     subfolders that share a name across the two trees:
       - Ssh\          : SSH client + port-probe primitives.
       - FileServer\   : host-side HTTP file server used to stage VM downloads.
       - FileTransfer\ : VM-side transport on top of Ssh + FileServer.
+      - EnvVars\      : VM-side system environment variable management.
     Each function still lives in its own file so diffs stay focused on a
     single function per commit.
 #>
@@ -48,8 +60,6 @@ $ErrorActionPreference = 'Stop'
 
 # Private functions:
 
-. "$PSScriptRoot\Private\Ssh\Assert-SshNetLoaded.ps1"
-
 . "$PSScriptRoot\Private\FileServer\Get-VmSwitchHostIp.ps1"
 . "$PSScriptRoot\Private\FileServer\Start-VmFileServer.ps1"
 . "$PSScriptRoot\Private\FileServer\Stop-VmFileServer.ps1"
@@ -58,12 +68,12 @@ $ErrorActionPreference = 'Stop'
 . "$PSScriptRoot\Private\FileTransfer\Assert-VmFileSingleEntry.ps1"
 . "$PSScriptRoot\Private\FileTransfer\Resolve-VmFileEntries.ps1"
 
+. "$PSScriptRoot\Private\Ssh\Assert-SshNetLoaded.ps1"
+
 # Public functions:
 
-. "$PSScriptRoot\Public\Ssh\Invoke-SshClientCommand.ps1"
-. "$PSScriptRoot\Public\Ssh\New-VmSshClient.ps1"
-. "$PSScriptRoot\Public\Ssh\Test-VmSshPort.ps1"
-. "$PSScriptRoot\Public\Ssh\Wait-VmSshReady.ps1"
+. "$PSScriptRoot\Public\EnvVars\Assert-VmEnvVarsField.ps1"
+. "$PSScriptRoot\Public\EnvVars\Set-VmEnvironmentVariables.ps1"
 
 . "$PSScriptRoot\Public\FileServer\Add-VmFileServerFile.ps1"
 . "$PSScriptRoot\Public\FileServer\Invoke-WithVmFileServer.ps1"
@@ -71,6 +81,11 @@ $ErrorActionPreference = 'Stop'
 . "$PSScriptRoot\Public\FileTransfer\Assert-VmFilesField.ps1"
 . "$PSScriptRoot\Public\FileTransfer\Copy-VmFiles.ps1"
 . "$PSScriptRoot\Public\FileTransfer\Copy-VmFilesByPattern.ps1"
+
+. "$PSScriptRoot\Public\Ssh\Invoke-SshClientCommand.ps1"
+. "$PSScriptRoot\Public\Ssh\New-VmSshClient.ps1"
+. "$PSScriptRoot\Public\Ssh\Test-VmSshPort.ps1"
+. "$PSScriptRoot\Public\Ssh\Wait-VmSshReady.ps1"
 
 # Export-ModuleMember controls what is actually callable after Import-Module.
 # It takes precedence over FunctionsToExport in the psd1 at runtime, so both
@@ -80,12 +95,14 @@ $ErrorActionPreference = 'Stop'
 # run-unit-tests action enforces that every Public\*.ps1 file appears in both.
 Export-ModuleMember -Function @(
     'Add-VmFileServerFile',
+    'Assert-VmEnvVarsField',
     'Assert-VmFilesField',
     'Copy-VmFiles',
     'Copy-VmFilesByPattern',
     'Invoke-SshClientCommand',
     'Invoke-WithVmFileServer',
     'New-VmSshClient',
+    'Set-VmEnvironmentVariables',
     'Test-VmSshPort',
     'Wait-VmSshReady'
 )

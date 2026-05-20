@@ -130,6 +130,9 @@ ${Script:DeployUser} ALL=(root) NOPASSWD: /usr/bin/chown
 ${Script:DeployUser} ALL=(root) NOPASSWD: /usr/bin/chmod
 ${Script:DeployUser} ALL=(root) NOPASSWD: /usr/bin/sha256sum
 ${Script:DeployUser} ALL=(root) NOPASSWD: /usr/bin/stat
+${Script:DeployUser} ALL=(root) NOPASSWD: /usr/bin/cat
+${Script:DeployUser} ALL=(root) NOPASSWD: /usr/bin/tee
+${Script:DeployUser} ALL=(root) NOPASSWD: /usr/bin/mv
 Defaults:${Script:DeployUser} !requiretty
 "@ -replace "`r`n", "`n"
 
