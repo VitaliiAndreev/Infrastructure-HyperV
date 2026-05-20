@@ -1,15 +1,25 @@
 <#
 .SYNOPSIS
-    Validates the shape of an 'envVars' array on a VM definition.
+    Validates the shape of an 'envVars' object on a VM definition.
 
 .DESCRIPTION
-    Performs the schema checks for an 'envVars' array on a VM
+    Performs the schema checks for an 'envVars' object on a VM
     definition, mirroring the Assert-VmFilesField "shared rules,
     consumer opts in" pattern. The rule set is fixed in v1:
 
       - 'envVars' may be absent: returns silently.
-      - When present, must be a JSON array (PSCustomObject or string
-        is rejected with a message naming the VM).
+      - When present, must be a JSON object with exactly the
+        sub-fields 'blockName' and 'entries' (array / string /
+        unknown sub-fields are rejected with a message naming
+        the VM).
+      - 'blockName': required string, 1-128 chars, matches
+        ^[A-Za-z0-9._ -]+$, must not start or end with whitespace.
+        The character class is the safe subset for the bash
+        single-quoted marker line a consumer wires into the
+        transport - anything else could break out of the quoting
+        or split the marker across lines.
+      - 'entries': required array, may be empty (the transport
+        treats an empty list as "remove the managed block").
       - Each entry must be a PSCustomObject with exactly the
         allowed sub-fields 'name' and 'value'.
       - 'name': required string, matches POSIX identifier syntax
@@ -45,18 +55,61 @@ function Assert-VmEnvVarsField {
     $vmName = if ($Vm.PSObject.Properties['vmName']) { $Vm.vmName } else { '(unknown)' }
     $ctx    = "VM '$vmName': envVars"
 
-    $entries = $Vm.envVars
+    $envVars = $Vm.envVars
 
-    # Reject anything that is not a "real" JSON array. ConvertFrom-Json
-    # surfaces arrays as Object[] (IEnumerable, not a string and not a
-    # PSCustomObject), so the strict checks below catch the null,
-    # string, and object-instead-of-array cases that the user might
-    # accidentally write.
+    # Reject anything that is not a "real" JSON object wrapper. The
+    # wrapper carries both the per-VM block name and the entries so
+    # the two cannot drift apart in the source JSON.
+    if ($null -eq $envVars -or
+        $envVars -is [string] -or
+        $envVars -is [System.Collections.IEnumerable] -or
+        $envVars -isnot [System.Management.Automation.PSCustomObject]) {
+        throw "$ctx must be a JSON object with sub-fields 'blockName' and 'entries'."
+    }
+
+    $allowedTopFields = @('blockName', 'entries')
+    foreach ($prop in $envVars.PSObject.Properties) {
+        if ($prop.Name -notin $allowedTopFields) {
+            throw "$ctx has unknown sub-field '$($prop.Name)'; allowed: $($allowedTopFields -join ', ')."
+        }
+    }
+
+    if (-not $envVars.PSObject.Properties['blockName']) {
+        throw "$ctx is missing required sub-field 'blockName'."
+    }
+    if (-not $envVars.PSObject.Properties['entries']) {
+        throw "$ctx is missing required sub-field 'entries'."
+    }
+
+    # blockName rules. The character class is the safe subset for
+    # the bash single-quoted marker line; ' / newline / NUL would
+    # either close the quoting early or split the marker.
+    $blockName = $envVars.blockName
+    $blockNameRegex = '^[A-Za-z0-9._ -]+$'
+    if ($blockName -isnot [string]) {
+        throw "$ctx.blockName must be a string."
+    }
+    if ($blockName.Length -eq 0) {
+        throw "$ctx.blockName must be a non-empty string."
+    }
+    if ($blockName.Length -gt 128) {
+        throw "$ctx.blockName length $($blockName.Length) exceeds the 128-char limit."
+    }
+    if ($blockName -notmatch $blockNameRegex) {
+        throw "$ctx.blockName '$blockName' contains a disallowed character (allowed: $blockNameRegex)."
+    }
+    # Trim check after the regex pass so the offending value in the
+    # message is the raw blockName the operator wrote.
+    if ($blockName.Trim() -ne $blockName) {
+        throw "$ctx.blockName '$blockName' must not start or end with whitespace."
+    }
+
+    $entries = $envVars.entries
     if ($null -eq $entries -or
         $entries -is [string] -or
         $entries -is [System.Management.Automation.PSCustomObject] -or
         -not ($entries -is [System.Collections.IEnumerable])) {
-        throw "$ctx must be a JSON array of { name, value } entries."
+        throw "$ctx.entries must be a JSON array of { name, value } entries."
     }
 
     $allowedSubFields = @('name', 'value')
@@ -65,7 +118,7 @@ function Assert-VmEnvVarsField {
     $seenNames = @{}
     $i = 0
     foreach ($entry in $entries) {
-        $entryCtx = "$ctx[$i]"
+        $entryCtx = "$ctx.entries[$i]"
         $i++
 
         if ($null -eq $entry -or
@@ -129,7 +182,7 @@ function Assert-VmEnvVarsField {
 
     foreach ($kv in $seenNames.GetEnumerator()) {
         if ($kv.Value -gt 1) {
-            throw "$ctx has duplicate entries for name '$($kv.Key)' ($($kv.Value) occurrences)."
+            throw "$ctx.entries has duplicate entries for name '$($kv.Key)' ($($kv.Value) occurrences)."
         }
     }
 }

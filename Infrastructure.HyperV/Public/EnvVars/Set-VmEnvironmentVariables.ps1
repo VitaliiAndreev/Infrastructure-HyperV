@@ -7,17 +7,23 @@
     Reconciles the contents of a sentinel-delimited "managed block"
     inside /etc/environment with the desired set of entries:
 
-      # BEGIN Infrastructure.HyperV envVars
+      # BEGIN <BlockName>
       NAME1="VAL1"
       NAME2="VAL2"
-      # END Infrastructure.HyperV envVars
+      # END <BlockName>
+
+    The BlockName is supplied per call so two consumers wiring this
+    transport into the same VM can coexist in one /etc/environment
+    under their own independent blocks - a single shared sentinel
+    would let the last writer wipe every other consumer's keys.
 
     Lines outside the managed block (Ubuntu's default PATH=..., any
-    operator additions) are preserved byte-for-byte. By default the
-    function skips the write entirely when the existing block already
-    matches the desired block; pass -NoSkipUnchanged to force a write
-    even on a match (useful when recovering from out-of-band tampering
-    or when the file's mtime is itself meaningful).
+    operator additions, other consumers' blocks) are preserved
+    byte-for-byte. By default the function skips the write entirely
+    when the existing block already matches the desired block; pass
+    -NoSkipUnchanged to force a write even on a match (useful when
+    recovering from out-of-band tampering or when the file's mtime
+    is itself meaningful).
 
     The whole reconcile + strip + append + atomic-write sequence is one
     SSH round-trip, mirroring the discipline used by Copy-VmFiles. The
@@ -43,6 +49,15 @@
     exact rules; this function calls that validator before sending
     anything to the VM.
 
+.PARAMETER BlockName
+    The name embedded in the BEGIN / END sentinel markers. Lets
+    multiple unrelated consumers maintain their own managed blocks
+    inside the same /etc/environment without colliding. Same rules
+    as the JSON-side blockName (see Assert-VmEnvVarsField); the
+    transport re-validates host-side so direct callers that bypass
+    the JSON validator cannot smuggle ' / newline / NUL into the
+    marker assignment.
+
 .PARAMETER NoSkipUnchanged
     Forces the always-write path. Off by default - the skip-unchanged
     path produces the same observable state at lower cost. Use this
@@ -51,7 +66,7 @@
     bypass.
 
 .EXAMPLE
-    Set-VmEnvironmentVariables -SshClient $ssh -Entries @(
+    Set-VmEnvironmentVariables -SshClient $ssh -BlockName 'ci-agent' -Entries @(
         [PSCustomObject]@{ name = 'FOO_HOME'; value = '/opt/foo' },
         [PSCustomObject]@{ name = 'BAR_OPTS'; value = '-Xmx512m' }
     )
@@ -73,15 +88,42 @@ function Set-VmEnvironmentVariables {
         [AllowEmptyCollection()]
         [object[]] $Entries,
 
+        [Parameter(Mandatory)]
+        [string] $BlockName,
+
         [switch] $NoSkipUnchanged
     )
+
+    # Re-validate BlockName host-side using the same rules as
+    # Assert-VmEnvVarsField. Direct callers may legitimately bypass
+    # the JSON validator (e.g. tests, ad-hoc scripts) but no caller
+    # may inject characters that would break out of the marker's
+    # single-quoted bash assignment.
+    $blockNameRegex = '^[A-Za-z0-9._ -]+$'
+    if ([string]::IsNullOrEmpty($BlockName)) {
+        throw "Set-VmEnvironmentVariables: -BlockName must be a non-empty string."
+    }
+    if ($BlockName.Length -gt 128) {
+        throw "Set-VmEnvironmentVariables: -BlockName length $($BlockName.Length) exceeds the 128-char limit."
+    }
+    if ($BlockName -notmatch $blockNameRegex) {
+        throw "Set-VmEnvironmentVariables: -BlockName '$BlockName' contains a disallowed character (allowed: $blockNameRegex)."
+    }
+    if ($BlockName.Trim() -ne $BlockName) {
+        throw "Set-VmEnvironmentVariables: -BlockName '$BlockName' must not start or end with whitespace."
+    }
 
     # Validate via the shared schema rule set so the regex / duplicate
     # checks have a single source of truth. Skip the synthetic wrap on
     # the empty-array branch because "remove the block" is a valid
     # intent with no entries to validate.
     if ($Entries.Count -gt 0) {
-        Assert-VmEnvVarsField -Vm ([PSCustomObject]@{ envVars = $Entries })
+        Assert-VmEnvVarsField -Vm ([PSCustomObject]@{
+            envVars = [PSCustomObject]@{
+                blockName = $BlockName
+                entries   = $Entries
+            }
+        })
     }
 
     # Build the desired block CONTENT (no markers). The markers live
@@ -125,8 +167,8 @@ fi
     $script = @"
 set -euo pipefail
 TARGET=/etc/environment
-BEGIN_MARKER='# BEGIN Infrastructure.HyperV envVars'
-END_MARKER='# END Infrastructure.HyperV envVars'
+BEGIN_MARKER='# BEGIN $BlockName'
+END_MARKER='# END $BlockName'
 DESIRED=`$(cat <<'__INFRA_HYPERV_DESIRED_BLOCK__'
 $desiredBlock
 __INFRA_HYPERV_DESIRED_BLOCK__
@@ -157,7 +199,7 @@ sudo mv "`$TMP" "`$TARGET"
     $result = Invoke-SshClientCommand -SshClient $SshClient -Command $script
     if ($result.ExitStatus -ne 0) {
         throw ("Set-VmEnvironmentVariables failed (vm: $vmHost, " +
-            "names: $namesList, exit $($result.ExitStatus)). " +
+            "block: $BlockName, names: $namesList, exit $($result.ExitStatus)). " +
             "stdout: $($result.Output)  stderr: $($result.Error)")
     }
 }
