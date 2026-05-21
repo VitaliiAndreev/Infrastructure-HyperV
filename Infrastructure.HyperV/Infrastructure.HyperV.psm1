@@ -41,12 +41,14 @@
                                   up or a deadline expires; used to gate
                                   post-boot/reboot SSH work
 
-    Private helpers (Assert-SshNetLoaded, Get-VmSwitchHostIp,
-    Start-VmFileServer, Stop-VmFileServer) are dot-sourced below but not
-    exported.
+    Private helpers (Assert-PsModuleLoaded, Assert-SshNetLoaded,
+    Get-VmSwitchHostIp, Start-VmFileServer, Stop-VmFileServer) are
+    dot-sourced below but not exported.
 
     Functions are grouped by concern under Public\ and Private\ into
     subfolders that share a name across the two trees:
+      - PsModules\    : guards that ensure a PowerShell module prerequisite
+                        is installed and in scope before the caller runs.
       - Ssh\          : SSH client + port-probe primitives.
       - FileServer\   : host-side HTTP file server used to stage VM downloads.
       - FileTransfer\ : VM-side transport on top of Ssh + FileServer.
@@ -67,6 +69,8 @@ $ErrorActionPreference = 'Stop'
 . "$PSScriptRoot\Private\FileTransfer\Assert-VmFileBulkEntry.ps1"
 . "$PSScriptRoot\Private\FileTransfer\Assert-VmFileSingleEntry.ps1"
 . "$PSScriptRoot\Private\FileTransfer\Resolve-VmFileEntries.ps1"
+
+. "$PSScriptRoot\Private\PsModules\Assert-PsModuleLoaded.ps1"
 
 . "$PSScriptRoot\Private\Ssh\Assert-SshNetLoaded.ps1"
 

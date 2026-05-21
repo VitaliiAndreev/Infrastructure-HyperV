@@ -23,7 +23,7 @@ therefore no manifest / version change.
 
 A shared "ensure a PowerShell module is loaded, or throw with an
 install hint" primitive lives in
-`Private/Common/Assert-PsModuleLoaded.ps1`. Both the existing SSH
+`Private/PsModules/Assert-PsModuleLoaded.ps1`. Both the existing SSH
 guard ([Assert-SshNetLoaded](../../../../Infrastructure.HyperV/Private/Ssh/Assert-SshNetLoaded.ps1))
 and the new Hyper-V guard delegate to it, so the
 "loaded? available? install hint?" cascade lives in one place and
@@ -34,7 +34,7 @@ shape. One new public function (`Start-VmIfStopped`) under
 ```mermaid
 flowchart LR
     subgraph private[Private/]
-        Shared[Assert-PsModuleLoaded<br/>Common/]
+        Shared[Assert-PsModuleLoaded<br/>PsModules/]
         SshG[Assert-SshNetLoaded<br/>Ssh/]
         HvG[Assert-HyperVModuleLoaded<br/>Power/]
     end
@@ -100,15 +100,15 @@ No public surface, so no manifest / version bump.
 
 **Files.**
 
-- New: `Infrastructure.HyperV/Private/Common/Assert-PsModuleLoaded.ps1`
+- New: `Infrastructure.HyperV/Private/PsModules/Assert-PsModuleLoaded.ps1`
 - New: `Tests/Assert-PsModuleLoaded.Tests.ps1`
 - Edit: `Infrastructure.HyperV/Infrastructure.HyperV.psm1`
-  - Dot-source the new file under a new `# Private/Common/`
+  - Dot-source the new file under a new `# Private/PsModules/`
     grouping at the top of the Private block (before
     `Private/FileServer/`), so callers further down can rely on
     it being defined.
   - Update the header comment's "Private helpers" paragraph to
-    mention the `Common/` folder and `Assert-PsModuleLoaded`.
+    mention the `PsModules/` folder and `Assert-PsModuleLoaded`.
 
 **Behaviour.**
 
