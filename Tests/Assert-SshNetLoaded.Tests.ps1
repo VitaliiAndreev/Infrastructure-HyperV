@@ -1,15 +1,23 @@
+BeforeDiscovery {
+    # The SSH.NET type can only be observed when Posh-SSH (or its bundled
+    # DLL) is loaded on the test host. CI does not install Posh-SSH, so the
+    # "type present" assertion is gated on this flag; the negative path
+    # below is exercised in either environment.
+    #
+    # Set in BeforeDiscovery (not BeforeAll) so the variable exists when
+    # the per-It `-Skip:` clauses below are evaluated: Pester 5 evaluates
+    # -Skip at discovery time, before BeforeAll runs, and a BeforeAll-set
+    # script-scope variable read at discovery throws under strict mode.
+    # See feedback-pester5-discovery-time-skip.
+    $script:SshNetTypePresent = [bool] ('Renci.SshNet.SshClient' -as [type])
+}
+
 BeforeAll {
     # Dot-source the shared helper first so Mock can bind to it; the SSH
     # guard delegates to Assert-PsModuleLoaded and is otherwise just a
     # type-presence sanity check.
     . "$PSScriptRoot\..\Infrastructure.HyperV\Private\PsModules\Assert-PsModuleLoaded.ps1"
     . "$PSScriptRoot\..\Infrastructure.HyperV\Private\Ssh\Assert-SshNetLoaded.ps1"
-
-    # The SSH.NET type can only be observed when Posh-SSH (or its bundled
-    # DLL) is loaded on the test host. CI does not install Posh-SSH, so the
-    # "type present" assertion is gated on this flag; the negative path
-    # below is exercised in either environment.
-    $script:SshNetTypePresent = [bool] ('Renci.SshNet.SshClient' -as [type])
 }
 
 Describe 'Assert-SshNetLoaded' {
