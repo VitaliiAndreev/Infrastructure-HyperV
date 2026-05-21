@@ -41,9 +41,9 @@
                                   up or a deadline expires; used to gate
                                   post-boot/reboot SSH work
 
-    Private helpers (Assert-PsModuleLoaded, Assert-SshNetLoaded,
-    Get-VmSwitchHostIp, Start-VmFileServer, Stop-VmFileServer) are
-    dot-sourced below but not exported.
+    Private helpers (Assert-HyperVModuleLoaded, Assert-PsModuleLoaded,
+    Assert-SshNetLoaded, Get-VmSwitchHostIp, Start-VmFileServer,
+    Stop-VmFileServer) are dot-sourced below but not exported.
 
     Functions are grouped by concern under Public\ and Private\ into
     subfolders that share a name across the two trees:
@@ -69,6 +69,8 @@ $ErrorActionPreference = 'Stop'
 . "$PSScriptRoot\Private\FileTransfer\Assert-VmFileBulkEntry.ps1"
 . "$PSScriptRoot\Private\FileTransfer\Assert-VmFileSingleEntry.ps1"
 . "$PSScriptRoot\Private\FileTransfer\Resolve-VmFileEntries.ps1"
+
+. "$PSScriptRoot\Private\Power\Assert-HyperVModuleLoaded.ps1"
 
 . "$PSScriptRoot\Private\PsModules\Assert-PsModuleLoaded.ps1"
 
