@@ -22,6 +22,7 @@
         'Invoke-WithVmFileServer',
         'New-VmSshClient',
         'Set-VmEnvironmentVariables',
+        'Start-VmIfStopped',
         'Test-VmSshPort',
         'Wait-VmSshReady'
     )

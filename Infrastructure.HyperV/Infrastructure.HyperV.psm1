@@ -34,6 +34,10 @@
                                   when unchanged (default);
                                   -NoSkipUnchanged forces a write. Empty
                                   entries array removes the managed block
+      - Start-VmIfStopped       : idempotent Hyper-V power-on. Starts Off /
+                                  resumes Saved / no-ops on Running; throws
+                                  on transient or unrecognised states. Pair
+                                  with Wait-VmSshReady for "up and reachable"
       - Test-VmSshPort          : single-shot TCP probe of an SSH port; the
                                   ICMP-ping replacement for callers that
                                   intend to SSH immediately afterwards
@@ -49,6 +53,7 @@
     subfolders that share a name across the two trees:
       - PsModules\    : guards that ensure a PowerShell module prerequisite
                         is installed and in scope before the caller runs.
+      - Power\        : Hyper-V power-state management (start / resume).
       - Ssh\          : SSH client + port-probe primitives.
       - FileServer\   : host-side HTTP file server used to stage VM downloads.
       - FileTransfer\ : VM-side transport on top of Ssh + FileServer.
@@ -88,6 +93,8 @@ $ErrorActionPreference = 'Stop'
 . "$PSScriptRoot\Public\FileTransfer\Copy-VmFiles.ps1"
 . "$PSScriptRoot\Public\FileTransfer\Copy-VmFilesByPattern.ps1"
 
+. "$PSScriptRoot\Public\Power\Start-VmIfStopped.ps1"
+
 . "$PSScriptRoot\Public\Ssh\Invoke-SshClientCommand.ps1"
 . "$PSScriptRoot\Public\Ssh\New-VmSshClient.ps1"
 . "$PSScriptRoot\Public\Ssh\Test-VmSshPort.ps1"
@@ -109,6 +116,7 @@ Export-ModuleMember -Function @(
     'Invoke-WithVmFileServer',
     'New-VmSshClient',
     'Set-VmEnvironmentVariables',
+    'Start-VmIfStopped',
     'Test-VmSshPort',
     'Wait-VmSshReady'
 )
