@@ -32,6 +32,10 @@
                                   than a matching symlink (data-loss
                                   guard) - first of the "VM install
                                   primitives" family
+      - Remove-VmSymlink        : idempotent symlink removal under sudo;
+                                  no-op when Path is absent, refuses to
+                                  delete anything that is not a symlink
+                                  (data-loss guard)
       - Set-VmEnvironmentVariables : writes a sentinel-delimited managed
                                   block of NAME="VALUE" lines to
                                   /etc/environment on the VM. Reconciles
@@ -107,6 +111,7 @@ $ErrorActionPreference = 'Stop'
 . "$PSScriptRoot\Public\Ssh\Wait-VmSshReady.ps1"
 
 . "$PSScriptRoot\Public\Symlinks\New-VmSymlink.ps1"
+. "$PSScriptRoot\Public\Symlinks\Remove-VmSymlink.ps1"
 
 # Export-ModuleMember controls what is actually callable after Import-Module.
 # It takes precedence over FunctionsToExport in the psd1 at runtime, so both
@@ -124,6 +129,7 @@ Export-ModuleMember -Function @(
     'Invoke-WithVmFileServer',
     'New-VmSshClient',
     'New-VmSymlink',
+    'Remove-VmSymlink',
     'Set-VmEnvironmentVariables',
     'Start-VmIfStopped',
     'Test-VmSshPort',

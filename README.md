@@ -48,6 +48,7 @@ prevention is the headline behavioural contract.
 | Function | Description |
 |---|---|
 | `New-VmSymlink` | Ensures `<Path>` is a symlink to `<Target>` under sudo. No-op when the symlink already points at the requested target; throws (without writing) when `<Path>` exists as a regular file, directory, or symlink to a different target. Path and target are validated host-side (absolute, no `..`, no NUL, no single quote) before any SSH call. |
+| `Remove-VmSymlink` | Removes the symlink at `<Path>` under sudo. No-op when `<Path>` does not exist; throws (without deleting) when `<Path>` exists as a regular file, directory, or other non-symlink object. Path is validated host-side (absolute, no `..`, no NUL, no single quote) before any SSH call. |
 
 SSH helpers require Posh-SSH's bundled `Renci.SshNet.dll` to be loaded into
 the session - `Invoke-ModuleInstall -ModuleName 'Posh-SSH'` is the standard
