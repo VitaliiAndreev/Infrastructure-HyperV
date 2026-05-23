@@ -23,6 +23,11 @@
       - Copy-VmFilesByPattern   : wildcard front-end to Copy-VmFiles; expands
                                   a host-side pattern, validates host-side,
                                   then forwards to Copy-VmFiles
+      - Expand-VmTarball        : stages a host-side .tar.gz via the file
+                                  server and extracts it into Destination
+                                  on the VM under sudo via an atomic
+                                  mktemp + curl|tar + mv (skip-unchanged
+                                  marker lands in a follow-up step)
       - Invoke-SshClientCommand : runs a shell command via SSH.NET SshClient
       - Invoke-WithVmFileServer : runs a script block with a live HTTP file
                                   server bound to the Hyper-V internal switch
@@ -86,7 +91,8 @@
     Functions are grouped by concern under Public\ and Private\ into
     subfolders that share a name across the two trees:
       - EnvVars\      : VM-side system environment variable management.
-      - FileServer\   : host-side HTTP file server used to stage VM downloads.
+      - FileServer\   : host-side HTTP file server used to stage VM downloads,
+                        plus VM-side tarball extraction primitive.
       - Filesystem\   : VM-side directory-tree removal primitives gated by
                         a hard-coded allowlist of safe parent prefixes.
       - FileTransfer\ : VM-side transport on top of Ssh + FileServer.
@@ -131,6 +137,7 @@ $ErrorActionPreference = 'Stop'
 . "$PSScriptRoot\Public\EnvVars\Set-VmEnvironmentVariables.ps1"
 
 . "$PSScriptRoot\Public\FileServer\Add-VmFileServerFile.ps1"
+. "$PSScriptRoot\Public\FileServer\Expand-VmTarball.ps1"
 . "$PSScriptRoot\Public\FileServer\Invoke-WithVmFileServer.ps1"
 
 . "$PSScriptRoot\Public\Filesystem\Remove-VmDirectory.ps1"
@@ -166,6 +173,7 @@ Export-ModuleMember -Function @(
     'Assert-VmFilesField',
     'Copy-VmFiles',
     'Copy-VmFilesByPattern',
+    'Expand-VmTarball',
     'Invoke-SshClientCommand',
     'Invoke-WithVmFileServer',
     'New-VmSshClient',

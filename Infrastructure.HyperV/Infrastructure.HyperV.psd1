@@ -18,6 +18,7 @@
         'Assert-VmFilesField',
         'Copy-VmFiles',
         'Copy-VmFilesByPattern',
+        'Expand-VmTarball',
         'Invoke-SshClientCommand',
         'Invoke-WithVmFileServer',
         'New-VmSshClient',
