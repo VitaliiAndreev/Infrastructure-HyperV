@@ -303,9 +303,15 @@ Describe 'Expand-VmTarball' {
                 -TarballPath $script:FakeTarball `
                 -Destination '/opt/jdk-21'
 
+            # The check reads the marker through `sudo cat ... || true`
+            # so a missing-or-unreadable file becomes an empty string;
+            # the -n guard then short-circuits before the equality test
+            # so an empty marker never spuriously matches an empty
+            # desired_digest. See the cmdlet's skip-block comment.
             Should -Invoke Invoke-SshClientCommand -ParameterFilter {
                 $Command -match 'marker="\$destination/\.infra-hyperv-tarball\.sha256"' -and
-                $Command -match 'if \[ -f "\$marker" \]; then[\s\S]*existing_digest="\$\(sudo cat "\$marker"\)"[\s\S]*if \[ "\$existing_digest" = "\$desired_digest" \]; then[\s\S]*exit 0'
+                $Command -match 'existing_digest="\$\(sudo cat "\$marker" 2>/dev/null \|\| true\)"' -and
+                $Command -match 'if \[ -n "\$existing_digest" \] && \[ "\$existing_digest" = "\$desired_digest" \]; then[\s\S]*exit 0'
             }
         }
 
@@ -373,7 +379,7 @@ Describe 'Expand-VmTarball' {
                 -NoSkipUnchanged
 
             Should -Invoke Invoke-SshClientCommand -ParameterFilter {
-                $Command -notmatch 'if \[ -f "\$marker" \]'
+                $Command -notmatch 'existing_digest="\$\(sudo cat "\$marker"'
             }
         }
 
