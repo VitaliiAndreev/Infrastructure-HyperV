@@ -38,6 +38,12 @@
                                   prefixes. Refuses to delete a
                                   non-directory at the target path
                                   (data-loss guard)
+      - Remove-VmProfileDScript : idempotent removal of a
+                                  /etc/profile.d/<Name>.sh script
+                                  under sudo. No-op when the target
+                                  is absent; mirrors
+                                  Set-VmProfileDScript on the
+                                  uninstall side
       - Remove-VmSymlink        : idempotent symlink removal under sudo;
                                   no-op when Path is absent, refuses to
                                   delete anything that is not a symlink
@@ -49,12 +55,6 @@
                                   when unchanged (default);
                                   -NoSkipUnchanged forces a write. Empty
                                   entries array removes the managed block
-      - Remove-VmProfileDScript : idempotent removal of a
-                                  /etc/profile.d/<Name>.sh script
-                                  under sudo. No-op when the target
-                                  is absent; mirrors
-                                  Set-VmProfileDScript on the
-                                  uninstall side
       - Set-VmProfileDScript    : writes a /etc/profile.d/<Name>.sh
                                   shell snippet on the VM under sudo
                                   via an atomic temp-file + mv. Byte-
@@ -78,16 +78,16 @@
 
     Functions are grouped by concern under Public\ and Private\ into
     subfolders that share a name across the two trees:
+      - EnvVars\      : VM-side system environment variable management.
+      - FileServer\   : host-side HTTP file server used to stage VM downloads.
       - Filesystem\   : VM-side directory-tree removal primitives gated by
                         a hard-coded allowlist of safe parent prefixes.
+      - FileTransfer\ : VM-side transport on top of Ssh + FileServer.
       - PsModules\    : guards that ensure a PowerShell module prerequisite
                         is installed and in scope before the caller runs.
       - Power\        : Hyper-V power-state management (start / resume).
-      - Ssh\          : SSH client + port-probe primitives.
-      - FileServer\   : host-side HTTP file server used to stage VM downloads.
-      - FileTransfer\ : VM-side transport on top of Ssh + FileServer.
-      - EnvVars\      : VM-side system environment variable management.
       - ProfileD\     : VM-side /etc/profile.d/*.sh install primitives.
+      - Ssh\          : SSH client + port-probe primitives.
       - Symlinks\     : VM-side symbolic-link install / uninstall primitives.
     Each function still lives in its own file so diffs stay focused on a
     single function per commit.
