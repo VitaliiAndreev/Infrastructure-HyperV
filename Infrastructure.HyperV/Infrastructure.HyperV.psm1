@@ -32,6 +32,12 @@
                                   than a matching symlink (data-loss
                                   guard) - first of the "VM install
                                   primitives" family
+      - Remove-VmDirectory      : idempotent removal of a directory tree
+                                  on a VM under sudo, gated by a
+                                  hard-coded allowlist of safe parent
+                                  prefixes. Refuses to delete a
+                                  non-directory at the target path
+                                  (data-loss guard)
       - Remove-VmSymlink        : idempotent symlink removal under sudo;
                                   no-op when Path is absent, refuses to
                                   delete anything that is not a symlink
@@ -72,6 +78,8 @@
 
     Functions are grouped by concern under Public\ and Private\ into
     subfolders that share a name across the two trees:
+      - Filesystem\   : VM-side directory-tree removal primitives gated by
+                        a hard-coded allowlist of safe parent prefixes.
       - PsModules\    : guards that ensure a PowerShell module prerequisite
                         is installed and in scope before the caller runs.
       - Power\        : Hyper-V power-state management (start / resume).
@@ -116,6 +124,8 @@ $ErrorActionPreference = 'Stop'
 . "$PSScriptRoot\Public\FileServer\Add-VmFileServerFile.ps1"
 . "$PSScriptRoot\Public\FileServer\Invoke-WithVmFileServer.ps1"
 
+. "$PSScriptRoot\Public\Filesystem\Remove-VmDirectory.ps1"
+
 . "$PSScriptRoot\Public\FileTransfer\Assert-VmFilesField.ps1"
 . "$PSScriptRoot\Public\FileTransfer\Copy-VmFiles.ps1"
 . "$PSScriptRoot\Public\FileTransfer\Copy-VmFilesByPattern.ps1"
@@ -149,6 +159,7 @@ Export-ModuleMember -Function @(
     'Invoke-WithVmFileServer',
     'New-VmSshClient',
     'New-VmSymlink',
+    'Remove-VmDirectory',
     'Remove-VmProfileDScript',
     'Remove-VmSymlink',
     'Set-VmEnvironmentVariables',

@@ -22,6 +22,7 @@
         'Invoke-WithVmFileServer',
         'New-VmSshClient',
         'New-VmSymlink',
+        'Remove-VmDirectory',
         'Remove-VmProfileDScript',
         'Remove-VmSymlink',
         'Set-VmEnvironmentVariables',
