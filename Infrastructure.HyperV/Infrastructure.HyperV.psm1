@@ -65,6 +65,13 @@
                                   resumes Saved / no-ops on Running; throws
                                   on transient or unrecognised states. Pair
                                   with Wait-VmSshReady for "up and reachable"
+      - Stop-VmProcessesUsingPath : sends SIGTERM (this step) to every
+                                  VM process holding a given path open,
+                                  waits a caller-specified grace
+                                  period, and reports survivors. The
+                                  SIGKILL fallback lands in a follow-up
+                                  step; KilledPids in the result is
+                                  always empty until then
       - Test-VmSshPort          : single-shot TCP probe of an SSH port; the
                                   ICMP-ping replacement for callers that
                                   intend to SSH immediately afterwards
@@ -86,6 +93,8 @@
       - PsModules\    : guards that ensure a PowerShell module prerequisite
                         is installed and in scope before the caller runs.
       - Power\        : Hyper-V power-state management (start / resume).
+      - Processes\    : VM-side process termination primitives keyed by
+                        filesystem path holders.
       - ProfileD\     : VM-side /etc/profile.d/*.sh install primitives.
       - Ssh\          : SSH client + port-probe primitives.
       - Symlinks\     : VM-side symbolic-link install / uninstall primitives.
@@ -132,6 +141,8 @@ $ErrorActionPreference = 'Stop'
 
 . "$PSScriptRoot\Public\Power\Start-VmIfStopped.ps1"
 
+. "$PSScriptRoot\Public\Processes\Stop-VmProcessesUsingPath.ps1"
+
 . "$PSScriptRoot\Public\Ssh\Invoke-SshClientCommand.ps1"
 . "$PSScriptRoot\Public\Ssh\New-VmSshClient.ps1"
 . "$PSScriptRoot\Public\Ssh\Test-VmSshPort.ps1"
@@ -165,6 +176,7 @@ Export-ModuleMember -Function @(
     'Set-VmEnvironmentVariables',
     'Set-VmProfileDScript',
     'Start-VmIfStopped',
+    'Stop-VmProcessesUsingPath',
     'Test-VmSshPort',
     'Wait-VmSshReady'
 )

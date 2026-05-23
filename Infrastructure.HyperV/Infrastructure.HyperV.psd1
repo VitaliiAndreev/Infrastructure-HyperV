@@ -28,6 +28,7 @@
         'Set-VmEnvironmentVariables',
         'Set-VmProfileDScript',
         'Start-VmIfStopped',
+        'Stop-VmProcessesUsingPath',
         'Test-VmSshPort',
         'Wait-VmSshReady'
     )
