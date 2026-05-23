@@ -55,23 +55,43 @@ Describe 'Stop-VmProcessesUsingPath' {
             }
         }
 
-        It 'sends sudo kill -TERM (no SIGKILL in this step)' {
+        It 'sends sudo kill -TERM before any SIGKILL' {
             Stop-VmProcessesUsingPath -SshClient $script:FakeSshClient `
                 -Path '/opt/foo' -GraceSeconds 3 | Out-Null
 
             Should -Invoke Invoke-SshClientCommand -ParameterFilter {
-                ($Command -match 'sudo kill -TERM') -and
-                ($Command -notmatch 'kill -KILL') -and
-                ($Command -notmatch 'kill -9')
+                $termIdx = $Command.IndexOf('sudo kill -TERM')
+                $killIdx = $Command.IndexOf('sudo kill -KILL')
+                ($termIdx -ge 0) -and ($killIdx -gt $termIdx)
             }
         }
 
-        It 'hard-codes KILLED= as empty in the report line (Step 8 will lift)' {
+        It 'reports KILLED from the killed shell variable' {
             Stop-VmProcessesUsingPath -SshClient $script:FakeSshClient `
                 -Path '/opt/foo' -GraceSeconds 3 | Out-Null
 
             Should -Invoke Invoke-SshClientCommand -ParameterFilter {
-                $Command -match 'TERMINATED=\$terminated KILLED= STILL_ALIVE=\$still_alive'
+                $Command -match 'TERMINATED=\$terminated KILLED=\$killed STILL_ALIVE=\$still_alive'
+            }
+        }
+
+        It 'escalates only the SIGTERM survivors via SIGKILL' {
+            Stop-VmProcessesUsingPath -SshClient $script:FakeSshClient `
+                -Path '/opt/foo' -GraceSeconds 3 | Out-Null
+
+            Should -Invoke Invoke-SshClientCommand -ParameterFilter {
+                $Command -match 'echo "\$sigterm_survivors" \| xargs -r sudo kill -KILL'
+            }
+        }
+
+        It 'polls kill -0 for up to 5 seconds in the SIGKILL reap window' {
+            Stop-VmProcessesUsingPath -SshClient $script:FakeSshClient `
+                -Path '/opt/foo' -GraceSeconds 3 | Out-Null
+
+            Should -Invoke Invoke-SshClientCommand -ParameterFilter {
+                # 50 tenths = 5 seconds; loop body sleeps 0.5s and bumps by 5
+                ($Command -match 'while \[ "\$kelapsed" -lt 50 \]') -and
+                ($Command -match 'kelapsed=\$\(\(kelapsed \+ 5\)\)')
             }
         }
 
@@ -85,13 +105,15 @@ Describe 'Stop-VmProcessesUsingPath' {
             }
         }
 
-        It 'omits the poll loop entirely when GraceSeconds = 0' {
+        It 'omits the SIGTERM grace poll when GraceSeconds = 0 (SIGKILL reap poll remains)' {
             Stop-VmProcessesUsingPath -SshClient $script:FakeSshClient `
                 -Path '/opt/foo' -GraceSeconds 0 | Out-Null
 
             Should -Invoke Invoke-SshClientCommand -ParameterFilter {
-                ($Command -notmatch 'while \[') -and
-                ($Command -notmatch 'sleep 0\.5')
+                # Grace poll references $elapsed; reap poll references $kelapsed.
+                # Only the latter should be present.
+                ($Command -notmatch '\$elapsed') -and
+                ($Command -match '\$kelapsed')
             }
         }
 
@@ -155,11 +177,11 @@ Describe 'Stop-VmProcessesUsingPath' {
                 Should -Throw -ExpectedMessage '*202*'
         }
 
-        It 'KilledPids is always empty in this step even with ExitStatus 0' {
+        It 'parses KilledPids when SIGTERM survivors are reaped by SIGKILL' {
             Mock Invoke-SshClientCommand {
                 [PSCustomObject]@{
                     ExitStatus = 0
-                    Output     = "TERMINATED=101 KILLED= STILL_ALIVE=`n"
+                    Output     = "TERMINATED=101 KILLED=202 203 STILL_ALIVE=`n"
                     Error      = ''
                 }
             }
@@ -167,7 +189,23 @@ Describe 'Stop-VmProcessesUsingPath' {
             $r = Stop-VmProcessesUsingPath -SshClient $script:FakeSshClient `
                 -Path '/opt/foo' -GraceSeconds 3
 
-            $r.KilledPids.Count | Should -Be 0
+            $r.TerminatedPids   | Should -Be @(101)
+            $r.KilledPids       | Should -Be @(202, 203)
+            $r.StillAlive.Count | Should -Be 0
+        }
+
+        It 'throws when survivors persist through SIGKILL (D state)' {
+            Mock Invoke-SshClientCommand {
+                [PSCustomObject]@{
+                    ExitStatus = 64
+                    Output     = "TERMINATED=101 KILLED=202 STILL_ALIVE=303`n"
+                    Error      = ''
+                }
+            }
+
+            { Stop-VmProcessesUsingPath -SshClient $script:FakeSshClient `
+                -Path '/opt/foo' -GraceSeconds 3 } |
+                Should -Throw -ExpectedMessage '*303*'
         }
 
         It 'throws with stderr context on a missing result line' {

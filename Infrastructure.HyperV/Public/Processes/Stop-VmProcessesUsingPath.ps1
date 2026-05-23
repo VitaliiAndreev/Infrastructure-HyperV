@@ -1,22 +1,20 @@
 <#
 .SYNOPSIS
-    Sends SIGTERM to every process on a Hyper-V VM whose open files,
-    cwd, executable, or memory mappings touch a given filesystem path,
-    waits a caller-specified grace period for them to exit, and reports
-    survivors.
+    Terminates every process on a Hyper-V VM whose open files, cwd,
+    executable, or memory mappings touch a given filesystem path,
+    escalating from SIGTERM to SIGKILL, and reports the outcome.
 
 .DESCRIPTION
     Single-round-trip primitive used by uninstall flows that need to
     free a directory tree before removing it. The cmdlet scans the VM
     for processes that hold <Path> open, sends SIGTERM, then polls
-    `kill -0` at 0.5s intervals up to <GraceSeconds>.
-
-    This step ships the SIGTERM-only half of the contract: survivors at
-    the end of the grace window are reported in StillAlive and the
-    cmdlet throws (exit 64 on the remote side). A follow-up step adds
-    the SIGKILL escalation, at which point the KilledPids field starts
-    being populated; in this step KilledPids is always an empty array
-    so callers can take a dependency on the result shape now.
+    `kill -0` at 0.5s intervals up to <GraceSeconds>. Any SIGTERM
+    survivors are sent SIGKILL and polled for up to 5 seconds (the
+    kernel reap window); the results are split into TerminatedPids
+    (exited under SIGTERM), KilledPids (reaped after SIGKILL), and
+    StillAlive (unreaped even after SIGKILL - typically uninterruptible
+    sleep, e.g. blocked in disk I/O or an NFS RPC). A non-empty
+    StillAlive causes the cmdlet to throw (exit 64 on the remote side).
 
     The remote scanner prefers `lsof +D` (catches open files, mmaps,
     cwd, exe), falls back to `fuser -m` (open files + mmaps under the
@@ -49,12 +47,11 @@
 .OUTPUTS
     PSCustomObject with three integer-array properties:
       - TerminatedPids: PIDs that exited within the grace window.
-      - KilledPids    : Always empty in this step. The field exists
-                        for forward compatibility with the SIGKILL
-                        fallback that lands in the next step.
-      - StillAlive    : PIDs still holding the path at the end of the
-                        grace window. Non-empty StillAlive causes the
-                        cmdlet to throw.
+      - KilledPids    : PIDs that survived SIGTERM but were reaped
+                        within the 5-second SIGKILL window.
+      - StillAlive    : PIDs that survived SIGKILL too (typically
+                        stuck in uninterruptible sleep). Non-empty
+                        StillAlive causes the cmdlet to throw.
 
 .EXAMPLE
     Stop-VmProcessesUsingPath -SshClient $ssh -Path '/opt/jdk-21' -GraceSeconds 5
@@ -135,9 +132,12 @@ done
 "@
     } else { '' }
 
-    # The KILLED= field is hard-coded empty in this step. Step 8 will
-    # replace this with the SIGKILL branch; downstream parsers can
-    # already take a dependency on the three-field shape.
+    # SIGKILL reap window is fixed at 5s (10 polls * 0.5s). The kernel
+    # reaps a SIGKILL'd process within microseconds unless the task is
+    # stuck in uninterruptible sleep (D state) waiting on disk I/O,
+    # NFS, or similar - cases that 5s will not unblock either, so a
+    # longer wait would just delay the inevitable StillAlive report.
+    $reapTenths = 50
     $script = @"
 set -euo pipefail
 path='$Path'
@@ -180,19 +180,51 @@ initial="`$pids"
 echo "`$pids" | xargs -r sudo kill -TERM 2>/dev/null || true
 $pollLoop
 terminated=''
-still_alive=''
+sigterm_survivors=''
 for pid in `$initial; do
     if sudo kill -0 "`$pid" 2>/dev/null; then
-        still_alive="`$still_alive `$pid"
+        sigterm_survivors="`$sigterm_survivors `$pid"
     else
         terminated="`$terminated `$pid"
     fi
 done
 
+# SIGKILL escalation. Only survivors are signalled - SIGKILL to a PID
+# that has already exited is harmless but kill returns non-zero and
+# would mask real failures under `set -e` without the `|| true`.
+killed=''
+still_alive=''
+if [ -n "`$sigterm_survivors" ]; then
+    echo "`$sigterm_survivors" | xargs -r sudo kill -KILL 2>/dev/null || true
+
+    kelapsed=0
+    while [ "`$kelapsed" -lt $reapTenths ]; do
+        any_alive=0
+        for pid in `$sigterm_survivors; do
+            if sudo kill -0 "`$pid" 2>/dev/null; then
+                any_alive=1
+                break
+            fi
+        done
+        if [ "`$any_alive" -eq 0 ]; then break; fi
+        sleep 0.5
+        kelapsed=`$((kelapsed + 5))
+    done
+
+    for pid in `$sigterm_survivors; do
+        if sudo kill -0 "`$pid" 2>/dev/null; then
+            still_alive="`$still_alive `$pid"
+        else
+            killed="`$killed `$pid"
+        fi
+    done
+fi
+
 terminated=`$(echo `$terminated | xargs || true)
+killed=`$(echo `$killed | xargs || true)
 still_alive=`$(echo `$still_alive | xargs || true)
 
-echo "TERMINATED=`$terminated KILLED= STILL_ALIVE=`$still_alive"
+echo "TERMINATED=`$terminated KILLED=`$killed STILL_ALIVE=`$still_alive"
 
 if [ -n "`$still_alive" ]; then
     exit $survivorExitCode
@@ -253,7 +285,9 @@ exit 0
     if ($result.ExitStatus -eq $survivorExitCode -or $stillAlive.Count -gt 0) {
         throw ("Stop-VmProcessesUsingPath: $($stillAlive.Count) process(es) " +
             "still hold '$Path' on VM $vmHost after SIGTERM + " +
-            "$GraceSeconds`s grace. StillAlive: $($stillAlive -join ', '). " +
+            "$GraceSeconds`s grace + SIGKILL + 5s reap. " +
+            "StillAlive: $($stillAlive -join ', '). " +
+            "Killed: $($killedPids -join ', '). " +
             "Terminated: $($terminatedPids -join ', ').")
     }
 
