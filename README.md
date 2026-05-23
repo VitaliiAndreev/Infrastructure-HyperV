@@ -38,6 +38,23 @@ It is published to PSGallery and consumed by other repos.
 | `Assert-VmFilesField` | Shared schema validator for a `files` array on a VM definition. Single-form entries (`{source, target, ...}`) by default; bulk-form entries (`{pattern, targetDir, recurse?, preserveRelativePath?}`) under `-AllowBulkEntries` for callers wired to `Copy-VmFilesByPattern`. Consumers extend the single form via `-AllowedSubFields` / `-PostEntryValidator`. |
 | `Assert-VmEnvVarsField` | Shared schema validator for an `envVars` object on a VM definition. Shape is `{ blockName, entries }` (both required when `envVars` is present). `blockName` is a 1-128 char string from `[A-Za-z0-9._ -]` with no leading/trailing whitespace. Each entry is `{name, value}`; name must be a POSIX identifier (no `=`), value must be a non-empty string with no LF/CR/NUL, and names must be unique. Absent `envVars` is valid; an empty `entries` array is valid and the transport treats it as "remove the managed block". |
 
+### VM install primitives
+
+Single-round-trip cmdlets that install or uninstall small artefacts on a
+running VM under sudo. All members of this family are idempotent and refuse
+to silently clobber the wrong kind of object at the target path - data-loss
+prevention is the headline behavioural contract.
+
+| Function | Description |
+|---|---|
+| `New-VmSymlink` | Ensures `<Path>` is a symlink to `<Target>` under sudo. No-op when the symlink already points at the requested target; throws (without writing) when `<Path>` exists as a regular file, directory, or symlink to a different target. Path and target are validated host-side (absolute, no `..`, no NUL, no single quote) before any SSH call. |
+| `Remove-VmSymlink` | Removes the symlink at `<Path>` under sudo. No-op when `<Path>` does not exist; throws (without deleting) when `<Path>` exists as a regular file, directory, or other non-symlink object. Path is validated host-side (absolute, no `..`, no NUL, no single quote) before any SSH call. |
+| `Set-VmProfileDScript` | Writes a `/etc/profile.d/<Name>.sh` script on the VM under sudo via an atomic temp-file + `mv`. Byte-compares against the file currently on the VM and skips the write when unchanged (default); `-NoSkipUnchanged` forces a write. `Name` is validated host-side (`^[A-Za-z0-9._-]+$`, must not end in `.sh`); a trailing newline is appended to `Content` if missing so the snippet is not silently ignored by POSIX shells. The atomic-write tail (`tee` -> `chown root:root` -> `chmod 0644` -> `mv`) is the shared module-internal helper. |
+| `Remove-VmProfileDScript` | Removes `/etc/profile.d/<Name>.sh` from the VM under sudo. No-op when the file is absent; mirrors `Set-VmProfileDScript` on the uninstall side and accepts the same `Name` shape (validated host-side before any SSH call). |
+| `Remove-VmDirectory` | Removes a directory tree at `<Path>` on the VM via `sudo rm -rf --`. Gated by a hard-coded allowlist of safe parent prefixes (`/opt/`, `/var/lib/infra-provisioner/`, `/usr/local/share/`) and a defense-in-depth denylist of protected system paths; extension of either is a security-review decision. No-op when `<Path>` is absent; refuses to delete (without writing) when `<Path>` exists as a non-directory. Path is validated host-side (absolute, no `..`, no NUL, no single quote) before any SSH call. |
+| `Stop-VmProcessesUsingPath` | Sends SIGTERM under sudo to every VM process whose open files, cwd, executable, or memory mappings touch `<Path>`, polls `kill -0` at 0.5s intervals for up to `<GraceSeconds>`, then escalates surviving PIDs to SIGKILL and polls for up to 5 more seconds (the kernel reap window). Returns `{ TerminatedPids, KilledPids, StillAlive }`: exited under SIGTERM, reaped after SIGKILL, and still unreaped (typically uninterruptible sleep). The scanner prefers `lsof +D`, falls back to `fuser -m`, then walks `/proc/*/{exe,cwd,maps}`. Non-empty `StillAlive` causes the cmdlet to throw. Path is validated host-side (absolute, no `..`, no NUL, no single quote) before any SSH call. |
+| `Expand-VmTarball` | Stages a host-side `.tar.gz` via `Add-VmFileServerFile` and extracts it into `<Destination>` on the VM under sudo. One SSH round-trip: `sudo mktemp -d` for a sibling tempdir under the destination's parent, `curl -fsSL \| sudo tar -xzf - --strip-components=<n>`, write a SHA-256 marker (`<Destination>/.infra-hyperv-tarball.sha256`) into the tempdir, `sudo rm -rf` any existing destination, then `sudo mv` the tempdir into place so the swap is atomic. Skip-unchanged (default) compares the host-computed digest of the tarball against the existing marker and exits before any `curl` / `tar` when they match; `-NoSkipUnchanged` forces re-extract while still refreshing the marker. `Destination` is validated host-side (absolute, no `..`, no NUL, no single quote); `TarballPath` must exist on the host; `StripComponents` is a non-negative integer (default 0). |
+
 SSH helpers require Posh-SSH's bundled `Renci.SshNet.dll` to be loaded into
 the session - `Invoke-ModuleInstall -ModuleName 'Posh-SSH'` is the standard
 way to do that. The module fails fast with an actionable message otherwise.
@@ -45,7 +62,7 @@ way to do that. The module fails fast with an actionable message otherwise.
 ## Usage
 
 ```powershell
-Install-Module -Name Infrastructure.HyperV -MinimumVersion 0.8.0
+Install-Module -Name Infrastructure.HyperV -MinimumVersion 0.9.0
 Import-Module Infrastructure.HyperV
 ```
 

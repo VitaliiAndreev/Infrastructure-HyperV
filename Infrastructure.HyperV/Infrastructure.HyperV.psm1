@@ -23,10 +23,36 @@
       - Copy-VmFilesByPattern   : wildcard front-end to Copy-VmFiles; expands
                                   a host-side pattern, validates host-side,
                                   then forwards to Copy-VmFiles
+      - Expand-VmTarball        : stages a host-side .tar.gz via the file
+                                  server and extracts it into Destination
+                                  on the VM under sudo via an atomic
+                                  mktemp + curl|tar + mv (skip-unchanged
+                                  marker lands in a follow-up step)
       - Invoke-SshClientCommand : runs a shell command via SSH.NET SshClient
       - Invoke-WithVmFileServer : runs a script block with a live HTTP file
                                   server bound to the Hyper-V internal switch
       - New-VmSshClient         : creates and connects a SSH.NET SshClient
+      - New-VmSymlink           : idempotent symlink creation under sudo;
+                                  fails if Path exists as anything other
+                                  than a matching symlink (data-loss
+                                  guard) - first of the "VM install
+                                  primitives" family
+      - Remove-VmDirectory      : idempotent removal of a directory tree
+                                  on a VM under sudo, gated by a
+                                  hard-coded allowlist of safe parent
+                                  prefixes. Refuses to delete a
+                                  non-directory at the target path
+                                  (data-loss guard)
+      - Remove-VmProfileDScript : idempotent removal of a
+                                  /etc/profile.d/<Name>.sh script
+                                  under sudo. No-op when the target
+                                  is absent; mirrors
+                                  Set-VmProfileDScript on the
+                                  uninstall side
+      - Remove-VmSymlink        : idempotent symlink removal under sudo;
+                                  no-op when Path is absent, refuses to
+                                  delete anything that is not a symlink
+                                  (data-loss guard)
       - Set-VmEnvironmentVariables : writes a sentinel-delimited managed
                                   block of NAME="VALUE" lines to
                                   /etc/environment on the VM. Reconciles
@@ -34,10 +60,23 @@
                                   when unchanged (default);
                                   -NoSkipUnchanged forces a write. Empty
                                   entries array removes the managed block
+      - Set-VmProfileDScript    : writes a /etc/profile.d/<Name>.sh
+                                  shell snippet on the VM under sudo
+                                  via an atomic temp-file + mv. Byte-
+                                  compares against the existing file
+                                  and skips when unchanged (default);
+                                  -NoSkipUnchanged forces a write
       - Start-VmIfStopped       : idempotent Hyper-V power-on. Starts Off /
                                   resumes Saved / no-ops on Running; throws
                                   on transient or unrecognised states. Pair
                                   with Wait-VmSshReady for "up and reachable"
+      - Stop-VmProcessesUsingPath : sends SIGTERM (this step) to every
+                                  VM process holding a given path open,
+                                  waits a caller-specified grace
+                                  period, and reports survivors. The
+                                  SIGKILL fallback lands in a follow-up
+                                  step; KilledPids in the result is
+                                  always empty until then
       - Test-VmSshPort          : single-shot TCP probe of an SSH port; the
                                   ICMP-ping replacement for callers that
                                   intend to SSH immediately afterwards
@@ -51,13 +90,20 @@
 
     Functions are grouped by concern under Public\ and Private\ into
     subfolders that share a name across the two trees:
+      - EnvVars\      : VM-side system environment variable management.
+      - FileServer\   : host-side HTTP file server used to stage VM downloads,
+                        plus VM-side tarball extraction primitive.
+      - Filesystem\   : VM-side directory-tree removal primitives gated by
+                        a hard-coded allowlist of safe parent prefixes.
+      - FileTransfer\ : VM-side transport on top of Ssh + FileServer.
       - PsModules\    : guards that ensure a PowerShell module prerequisite
                         is installed and in scope before the caller runs.
       - Power\        : Hyper-V power-state management (start / resume).
+      - Processes\    : VM-side process termination primitives keyed by
+                        filesystem path holders.
+      - ProfileD\     : VM-side /etc/profile.d/*.sh install primitives.
       - Ssh\          : SSH client + port-probe primitives.
-      - FileServer\   : host-side HTTP file server used to stage VM downloads.
-      - FileTransfer\ : VM-side transport on top of Ssh + FileServer.
-      - EnvVars\      : VM-side system environment variable management.
+      - Symlinks\     : VM-side symbolic-link install / uninstall primitives.
     Each function still lives in its own file so diffs stay focused on a
     single function per commit.
 #>
@@ -66,6 +112,8 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 # Private functions:
+
+. "$PSScriptRoot\Private\Bash\New-AtomicWriteBashFragment.ps1"
 
 . "$PSScriptRoot\Private\FileServer\Get-VmSwitchHostIp.ps1"
 . "$PSScriptRoot\Private\FileServer\Start-VmFileServer.ps1"
@@ -77,6 +125,8 @@ $ErrorActionPreference = 'Stop'
 
 . "$PSScriptRoot\Private\Power\Assert-HyperVModuleLoaded.ps1"
 
+. "$PSScriptRoot\Private\ProfileD\Assert-VmProfileDScriptName.ps1"
+
 . "$PSScriptRoot\Private\PsModules\Assert-PsModuleLoaded.ps1"
 
 . "$PSScriptRoot\Private\Ssh\Assert-SshNetLoaded.ps1"
@@ -87,7 +137,10 @@ $ErrorActionPreference = 'Stop'
 . "$PSScriptRoot\Public\EnvVars\Set-VmEnvironmentVariables.ps1"
 
 . "$PSScriptRoot\Public\FileServer\Add-VmFileServerFile.ps1"
+. "$PSScriptRoot\Public\FileServer\Expand-VmTarball.ps1"
 . "$PSScriptRoot\Public\FileServer\Invoke-WithVmFileServer.ps1"
+
+. "$PSScriptRoot\Public\Filesystem\Remove-VmDirectory.ps1"
 
 . "$PSScriptRoot\Public\FileTransfer\Assert-VmFilesField.ps1"
 . "$PSScriptRoot\Public\FileTransfer\Copy-VmFiles.ps1"
@@ -95,10 +148,18 @@ $ErrorActionPreference = 'Stop'
 
 . "$PSScriptRoot\Public\Power\Start-VmIfStopped.ps1"
 
+. "$PSScriptRoot\Public\Processes\Stop-VmProcessesUsingPath.ps1"
+
 . "$PSScriptRoot\Public\Ssh\Invoke-SshClientCommand.ps1"
 . "$PSScriptRoot\Public\Ssh\New-VmSshClient.ps1"
 . "$PSScriptRoot\Public\Ssh\Test-VmSshPort.ps1"
 . "$PSScriptRoot\Public\Ssh\Wait-VmSshReady.ps1"
+
+. "$PSScriptRoot\Public\ProfileD\Remove-VmProfileDScript.ps1"
+. "$PSScriptRoot\Public\ProfileD\Set-VmProfileDScript.ps1"
+
+. "$PSScriptRoot\Public\Symlinks\New-VmSymlink.ps1"
+. "$PSScriptRoot\Public\Symlinks\Remove-VmSymlink.ps1"
 
 # Export-ModuleMember controls what is actually callable after Import-Module.
 # It takes precedence over FunctionsToExport in the psd1 at runtime, so both
@@ -112,11 +173,18 @@ Export-ModuleMember -Function @(
     'Assert-VmFilesField',
     'Copy-VmFiles',
     'Copy-VmFilesByPattern',
+    'Expand-VmTarball',
     'Invoke-SshClientCommand',
     'Invoke-WithVmFileServer',
     'New-VmSshClient',
+    'New-VmSymlink',
+    'Remove-VmDirectory',
+    'Remove-VmProfileDScript',
+    'Remove-VmSymlink',
     'Set-VmEnvironmentVariables',
+    'Set-VmProfileDScript',
     'Start-VmIfStopped',
+    'Stop-VmProcessesUsingPath',
     'Test-VmSshPort',
     'Wait-VmSshReady'
 )
