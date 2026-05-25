@@ -64,8 +64,17 @@ function Start-VmFileServer {
         -Action      Allow | Out-Null
 
     $listener = [System.Net.HttpListener]::new()
-    $listener.Prefixes.Add("http://${HostIp}:${Port}/")
+    $prefix   = "http://${HostIp}:${Port}/"
+    $listener.Prefixes.Add($prefix)
     $listener.Start()
+
+    # Diagnostic: surface the exact prefix http.sys is dispatching for so
+    # a VM-side 503 can be cross-checked against the IP the VM actually
+    # hits. If these don't match, http.sys returns 503 to the VM because
+    # no application is listening for that IP:port pair even though the
+    # URL ACL covers it.
+    Write-Host "  [file-server] listener bound to $prefix" `
+        -ForegroundColor DarkGray
 
     # Isolated runspace so the caller's thread is not blocked.
     # The loop exits when Listener.Stop() causes GetContext() to throw.

@@ -116,6 +116,36 @@ function Copy-VmFiles {
         # the running shell dereferences its own copies. mkdir -p is a
         # no-op when the parent already exists; curl -fsSL follows
         # redirects, fails on HTTP errors, stays silent on success.
+        # Bash helper appended to each script below: tries the curl, and on
+        # failure runs curl -v + VM-side network diagnostics (ip route /
+        # ip addr / hostname -I) and emits them on stderr so the captured
+        # error message names the host IP the VM actually reached, the
+        # response Server header, and the route the VM used. Diagnostics
+        # exist because a 503 reproduced in E2E with no obvious cause -
+        # whoever returns 503 will be identified by its Server header,
+        # and an IP mismatch will surface in 'ip route get'.
+        $diagBlock = @'
+fail_diag() {
+    local rc="$1"
+    {
+        echo '=== Copy-VmFiles 503-diagnostic dump ==='
+        echo "url=$url"
+        echo "curl exit=$rc"
+        echo '--- curl -v retry (stdout discarded) ---'
+        sudo curl -v -o /dev/null --max-time 10 "$url" 2>&1 || true
+        echo '--- ip route get for the URL host ---'
+        host_only=$(echo "$url" | sed -E 's#^https?://([^:/]+).*#\1#')
+        ip route get "$host_only" 2>&1 || true
+        echo '--- ip -4 addr ---'
+        ip -4 addr 2>&1 || true
+        echo '--- default routes ---'
+        ip -4 route 2>&1 || true
+        echo '=== end diagnostic dump ==='
+    } >&2
+    exit "$rc"
+}
+'@
+
         if ($NoSkipUnchanged) {
             # Byte-for-byte the pre-change shape. No reconcile, no hash.
             $script = @"
@@ -124,8 +154,9 @@ target='$target'
 url='$url'
 owner='$owner'
 mode='$mode'
+$diagBlock
 sudo mkdir -p "`$(dirname "`$target")"
-sudo curl -fsSL -o "`$target" "`$url"
+sudo curl -fsSL -o "`$target" "`$url" || fail_diag `$?
 sudo chown "`$owner" "`$target"
 sudo chmod "`$mode" "`$target"
 "@
@@ -158,8 +189,9 @@ actual_mode="`${actual_meta##* }"
 if [ -n "`$actual_hash" ] && [ "`$actual_hash" = "`$expected_hash" ] && [ "`$actual_owner" = "`$owner" ] && [ "`$((8#`${actual_mode:-0}))" = "`$((8#`$mode))" ]; then
     exit 0
 fi
+$diagBlock
 sudo mkdir -p "`$(dirname "`$target")"
-sudo curl -fsSL -o "`$target" "`$url"
+sudo curl -fsSL -o "`$target" "`$url" || fail_diag `$?
 sudo chown "`$owner" "`$target"
 sudo chmod "`$mode" "`$target"
 "@
