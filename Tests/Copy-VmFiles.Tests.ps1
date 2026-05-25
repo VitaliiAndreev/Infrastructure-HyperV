@@ -359,14 +359,38 @@ Describe 'Copy-VmFiles' {
                          -Entries   $entries `
                          -NoSkipUnchanged
 
+            # The fail_diag bash function is injected by Copy-VmFiles so a VM
+            # curl failure dumps diagnostics (curl -v retry + ip route + ip
+            # addr) before re-exiting with the original code. Kept inline
+            # here rather than re-imported because this test is the
+            # byte-for-byte gate against silent script changes.
             $expected = @"
 set -e
 target='/opt/lib/a.bin'
 url='http://192.168.1.1:8745/a.bin'
 owner='root:root'
 mode='0644'
+fail_diag() {
+    local rc="`$1"
+    {
+        echo '=== Copy-VmFiles 503-diagnostic dump ==='
+        echo "url=`$url"
+        echo "curl exit=`$rc"
+        echo '--- curl -v retry (stdout discarded) ---'
+        sudo curl -v -o /dev/null --max-time 10 "`$url" 2>&1 || true
+        echo '--- ip route get for the URL host ---'
+        host_only=`$(echo "`$url" | sed -E 's#^https?://([^:/]+).*#\1#')
+        ip route get "`$host_only" 2>&1 || true
+        echo '--- ip -4 addr ---'
+        ip -4 addr 2>&1 || true
+        echo '--- default routes ---'
+        ip -4 route 2>&1 || true
+        echo '=== end diagnostic dump ==='
+    } >&2
+    exit "`$rc"
+}
 sudo mkdir -p "`$(dirname "`$target")"
-sudo curl -fsSL -o "`$target" "`$url"
+sudo curl -fsSL -o "`$target" "`$url" || fail_diag `$?
 sudo chown "`$owner" "`$target"
 sudo chmod "`$mode" "`$target"
 "@ -replace "`r`n", "`n"
