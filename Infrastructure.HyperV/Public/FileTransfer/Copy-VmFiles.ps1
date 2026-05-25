@@ -131,8 +131,16 @@ fail_diag() {
         echo '=== Copy-VmFiles 503-diagnostic dump ==='
         echo "url=$url"
         echo "curl exit=$rc"
-        echo '--- curl -v retry (stdout discarded) ---'
-        sudo curl -v -o /dev/null --max-time 10 "$url" 2>&1 || true
+        echo '--- curl -v retry (response body captured) ---'
+        # -o into a tmp file so the response body is preserved (http.sys
+        # 503 bodies name the precise reason: AppOffline, QueueFull,
+        # Disabled, etc). Cat the file after, then clean up.
+        body_tmp=$(mktemp)
+        sudo curl -v -o "$body_tmp" --max-time 10 "$url" 2>&1 || true
+        echo '--- response body ---'
+        sudo cat "$body_tmp" 2>&1 || true
+        echo ''
+        sudo rm -f "$body_tmp"
         echo '--- ip route get for the URL host ---'
         host_only=$(echo "$url" | sed -E 's#^https?://([^:/]+).*#\1#')
         ip route get "$host_only" 2>&1 || true
