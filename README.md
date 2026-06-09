@@ -67,7 +67,7 @@ way to do that. The module fails fast with an actionable message otherwise.
 ## Usage
 
 ```powershell
-Install-Module -Name Infrastructure.HyperV -MinimumVersion 0.10.1
+Install-Module -Name Infrastructure.HyperV -MinimumVersion 0.11.0
 Import-Module Infrastructure.HyperV
 ```
 
