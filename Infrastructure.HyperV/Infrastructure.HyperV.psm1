@@ -28,6 +28,11 @@
                                   on the VM under sudo via an atomic
                                   mktemp + curl|tar + mv (skip-unchanged
                                   marker lands in a follow-up step)
+      - Get-VmKvpIpAddress      : polls Hyper-V KVP integration services
+                                  for a VM's IPv4 address on a named
+                                  switch; the discovery primitive every
+                                  caller of a DHCP-only VM needs once
+                                  it has booted
       - Get-VmSwitchHostIp      : returns the Windows host's IPv4 on
                                   the same /24 as a supplied VM IP -
                                   used to anchor an HTTP file server's
@@ -37,6 +42,15 @@
       - Invoke-WithVmFileServer : runs a script block with a live HTTP file
                                   server bound to the Hyper-V internal switch
       - New-VmSshClient         : creates and connects a SSH.NET SshClient
+      - New-VmSshClientWithJump : opens an SSH session to a VM,
+                                  transparently routing through a jump
+                                  host when the VM def carries
+                                  _RouterVm (feature-53 NAT topology)
+      - New-VmSshTunnel         : opens an SSH session to a jump host
+                                  and configures a local TCP port
+                                  forward (SSH.NET ForwardedPortLocal)
+                                  so callers reach a VM the host has
+                                  no direct route to
       - New-VmSymlink           : idempotent symlink creation under sudo;
                                   fails if Path exists as anything other
                                   than a matching symlink (data-loss
@@ -82,6 +96,13 @@
                                   SIGKILL fallback lands in a follow-up
                                   step; KilledPids in the result is
                                   always empty until then
+      - Test-SshBanner          : connects to <Ip>:<Port> and reads up
+                                  to 16 bytes within a short budget;
+                                  returns $true iff the bytes start
+                                  with "SSH-". Beats a TCP-only probe
+                                  through a jump tunnel because SSH.NET
+                                  accepts the local socket before the
+                                  workload has actually replied
       - Test-VmSshPort          : single-shot TCP probe of an SSH port; the
                                   ICMP-ping replacement for callers that
                                   intend to SSH immediately afterwards
@@ -151,12 +172,16 @@ $ErrorActionPreference = 'Stop'
 . "$PSScriptRoot\Public\FileTransfer\Copy-VmFiles.ps1"
 . "$PSScriptRoot\Public\FileTransfer\Copy-VmFilesByPattern.ps1"
 
+. "$PSScriptRoot\Public\Power\Get-VmKvpIpAddress.ps1"
 . "$PSScriptRoot\Public\Power\Start-VmIfStopped.ps1"
 
 . "$PSScriptRoot\Public\Processes\Stop-VmProcessesUsingPath.ps1"
 
 . "$PSScriptRoot\Public\Ssh\Invoke-SshClientCommand.ps1"
 . "$PSScriptRoot\Public\Ssh\New-VmSshClient.ps1"
+. "$PSScriptRoot\Public\Ssh\New-VmSshTunnel.ps1"
+. "$PSScriptRoot\Public\Ssh\New-VmSshClientWithJump.ps1"
+. "$PSScriptRoot\Public\Ssh\Test-SshBanner.ps1"
 . "$PSScriptRoot\Public\Ssh\Test-VmSshPort.ps1"
 . "$PSScriptRoot\Public\Ssh\Wait-VmSshReady.ps1"
 
@@ -179,10 +204,13 @@ Export-ModuleMember -Function @(
     'Copy-VmFiles',
     'Copy-VmFilesByPattern',
     'Expand-VmTarball',
+    'Get-VmKvpIpAddress',
     'Get-VmSwitchHostIp',
     'Invoke-SshClientCommand',
     'Invoke-WithVmFileServer',
     'New-VmSshClient',
+    'New-VmSshClientWithJump',
+    'New-VmSshTunnel',
     'New-VmSymlink',
     'Remove-VmDirectory',
     'Remove-VmProfileDScript',
@@ -191,6 +219,7 @@ Export-ModuleMember -Function @(
     'Set-VmProfileDScript',
     'Start-VmIfStopped',
     'Stop-VmProcessesUsingPath',
+    'Test-SshBanner',
     'Test-VmSshPort',
     'Wait-VmSshReady'
 )

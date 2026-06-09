@@ -19,10 +19,13 @@
         'Copy-VmFiles',
         'Copy-VmFilesByPattern',
         'Expand-VmTarball',
+        'Get-VmKvpIpAddress',
         'Get-VmSwitchHostIp',
         'Invoke-SshClientCommand',
         'Invoke-WithVmFileServer',
         'New-VmSshClient',
+        'New-VmSshClientWithJump',
+        'New-VmSshTunnel',
         'New-VmSymlink',
         'Remove-VmDirectory',
         'Remove-VmProfileDScript',
@@ -31,6 +34,7 @@
         'Set-VmProfileDScript',
         'Start-VmIfStopped',
         'Stop-VmProcessesUsingPath',
+        'Test-SshBanner',
         'Test-VmSshPort',
         'Wait-VmSshReady'
     )
