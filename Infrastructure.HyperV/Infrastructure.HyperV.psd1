@@ -1,5 +1,5 @@
 @{
-    ModuleVersion        = '0.10.1'
+    ModuleVersion        = '0.11.0'
     GUID                 = 'c4a9d3e2-8b1f-4d7a-9e3c-5f2b8a1d4c6e'
     Author               = 'Vitaly Andrev'
     Description          = 'Hyper-V VM utilities (SSH, host file server) for infrastructure repos.'
@@ -19,9 +19,13 @@
         'Copy-VmFiles',
         'Copy-VmFilesByPattern',
         'Expand-VmTarball',
+        'Get-VmKvpIpAddress',
+        'Get-VmSwitchHostIp',
         'Invoke-SshClientCommand',
         'Invoke-WithVmFileServer',
         'New-VmSshClient',
+        'New-VmSshClientWithJump',
+        'New-VmSshTunnel',
         'New-VmSymlink',
         'Remove-VmDirectory',
         'Remove-VmProfileDScript',
@@ -30,6 +34,7 @@
         'Set-VmProfileDScript',
         'Start-VmIfStopped',
         'Stop-VmProcessesUsingPath',
+        'Test-SshBanner',
         'Test-VmSshPort',
         'Wait-VmSshReady'
     )
