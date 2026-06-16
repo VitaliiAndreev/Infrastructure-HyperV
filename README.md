@@ -19,11 +19,12 @@ server) for infrastructure repos.
   - [Prerequisites](#prerequisites)
   - [Running Tests](#running-tests)
   - [CI](#ci)
+  - [Linting](#linting)
   - [Release](#release)
 
 ## Overview
 
-This module is extracted from `PowerShell.Common` to give Hyper-V-specific
+This module is extracted from `Common.PowerShell` to give Hyper-V-specific
 functions their own cohesion boundary. Everything in here assumes a Hyper-V VM
 sitting on an internal switch that the Windows host can reach over SSH or HTTP.
 It is published to PSGallery and consumed by other repos.
@@ -128,11 +129,11 @@ Import-Module Infrastructure.HyperV
 
 ### Prerequisites
 
-Clone `PowerShell-Common` at `.ci-common` once before running any local
+Clone `Common-PowerShell` at `.ci-common` once before running any local
 test runner:
 
 ```powershell
-git clone https://github.com/VitaliiAndreev/PowerShell-Common .ci-common
+git clone https://github.com/VitaliiAndreev/Common-PowerShell .ci-common
 ```
 
 ### Running Tests
@@ -158,12 +159,61 @@ Three thin CI workflows delegate to Common's reusable workflows:
 | `ci-docker-host.yml` | PR / manual | `ci-powershell-docker-host.yml` |
 | `ci-docker-target.yml` | PR / manual | `ci-powershell-docker-target.yml` |
 
+Two more thin workflows lint the YAML and Bash surfaces by delegating to
+**Common-Automation**, so the lint config is single-sourced and cannot drift
+per repo:
+
+| Workflow | Runs |
+|---|---|
+| `ci-yaml.yml` | actionlint, action-validator, yamllint, ansible-lint |
+| `ci-bash.yml` | shellcheck, check-sh-executable, bats |
+
+Each linter auto-skips when its surface is absent.
+
+### Linting
+
+To reproduce the exact CI locally (Git Bash + Docker), use the main runner. It
+runs the full lint suite AND the bats tests - the local equivalent of this
+repo's `ci-yaml.yml` + `ci-bash.yml`:
+
+```bash
+# MAIN entry: full lint suite + bats tests (local ci-yaml.yml + ci-bash.yml).
+scripts/run-ci-yaml-and-bash.sh              # or double-click scripts\run-ci-yaml-and-bash.bat
+```
+
+To run just one half:
+
+```bash
+# Lint half only (shellcheck, actionlint, action-validator, yamllint,
+# ansible-lint). Distinct from the Pester runner Run-Tests.ps1; runs no
+# PowerShell tests.
+scripts/run-lint-yaml-and-bash.sh            # or double-click scripts\run-lint-yaml-and-bash.bat
+
+# Bats test half only.
+scripts/run-tests-bash.sh                    # or double-click scripts\run-tests-bash.bat
+
+# Re-stage the +x bit on tracked *.sh files (Windows checkouts drop it,
+# tripping the check-sh-executable gate).
+scripts/fix-permissions.sh     # or scripts\fix-permissions.bat
+```
+
+All three runners are thin shims over Common-Automation's engine, pointed at
+this repo via the `COMMON_AUTOMATION_TARGET_REPO` env var, so a sibling
+checkout at `..\Common-Automation` is required. `.gitattributes` pins `*.sh`
+to LF and `*.bat` to CRLF - Linux CI runners reject CRLF shebangs.
+
 ### Release
 
-Pushing a change to `Infrastructure.HyperV/Infrastructure.HyperV.psd1` on
-`master` with a new `ModuleVersion` triggers `release.yml`, which:
+Releases are CHANGELOG.md-driven. To ship a version: promote the
+[`[Unreleased]`](CHANGELOG.md) section in [CHANGELOG.md](CHANGELOG.md) to the
+new version + date, bump `ModuleVersion` in
+`Infrastructure.HyperV/Infrastructure.HyperV.psd1` to match, and merge to
+`master`. The manifest change triggers `release.yml`, which:
 
-1. Checks the version is new.
-2. Runs all three CI workflows.
-3. Tags the commit via Common's `tag.yml`.
-4. Publishes to PSGallery via Common's `publish.yml`.
+1. Checks the version is new (`check-version-is-new`).
+2. Asserts the manifest version matches the top CHANGELOG.md section
+   (`assert-changelog-version`) - the release fails here if notes are
+   missing, so they can never lag the release.
+3. Runs all three CI workflows.
+4. Tags, publishes to PSGallery, and cuts a GitHub Release (with notes
+   from CHANGELOG.md) via Common's `release-tail.yml`.
