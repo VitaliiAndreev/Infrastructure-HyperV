@@ -19,6 +19,7 @@ server) for infrastructure repos.
   - [Prerequisites](#prerequisites)
   - [Running Tests](#running-tests)
   - [CI](#ci)
+  - [Linting](#linting)
   - [Release](#release)
 
 ## Overview
@@ -157,6 +158,49 @@ Three thin CI workflows delegate to Common's reusable workflows:
 | `ci.yml` | PR / manual | `ci-powershell.yml` |
 | `ci-docker-host.yml` | PR / manual | `ci-powershell-docker-host.yml` |
 | `ci-docker-target.yml` | PR / manual | `ci-powershell-docker-target.yml` |
+
+Two more thin workflows lint the YAML and Bash surfaces by delegating to
+**Common-Automation**, so the lint config is single-sourced and cannot drift
+per repo:
+
+| Workflow | Runs |
+|---|---|
+| `ci-yaml.yml` | actionlint, action-validator, yamllint, ansible-lint |
+| `ci-bash.yml` | shellcheck, check-sh-executable, bats |
+
+Each linter auto-skips when its surface is absent.
+
+### Linting
+
+To reproduce the exact CI locally (Git Bash + Docker), use the main runner. It
+runs the full lint suite AND the bats tests - the local equivalent of this
+repo's `ci-yaml.yml` + `ci-bash.yml`:
+
+```bash
+# MAIN entry: full lint suite + bats tests (local ci-yaml.yml + ci-bash.yml).
+scripts/run-ci-yaml-and-bash.sh              # or double-click scripts\run-ci-yaml-and-bash.bat
+```
+
+To run just one half:
+
+```bash
+# Lint half only (shellcheck, actionlint, action-validator, yamllint,
+# ansible-lint). Distinct from the Pester runner Run-Tests.ps1; runs no
+# PowerShell tests.
+scripts/run-lint-yaml-and-bash.sh            # or double-click scripts\run-lint-yaml-and-bash.bat
+
+# Bats test half only.
+scripts/run-tests-bash.sh                    # or double-click scripts\run-tests-bash.bat
+
+# Re-stage the +x bit on tracked *.sh files (Windows checkouts drop it,
+# tripping the check-sh-executable gate).
+scripts/fix-permissions.sh     # or scripts\fix-permissions.bat
+```
+
+All three runners are thin shims over Common-Automation's engine, pointed at
+this repo via the `COMMON_AUTOMATION_TARGET_REPO` env var, so a sibling
+checkout at `..\Common-Automation` is required. `.gitattributes` pins `*.sh`
+to LF and `*.bat` to CRLF - Linux CI runners reject CRLF shebangs.
 
 ### Release
 
