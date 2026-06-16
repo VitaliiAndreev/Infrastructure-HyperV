@@ -155,9 +155,9 @@ Three thin CI workflows delegate to Common's reusable workflows:
 
 | Workflow | Trigger | Calls |
 |---|---|---|
-| `ci.yml` | PR / manual | `ci-powershell.yml` |
-| `ci-docker-host.yml` | PR / manual | `ci-powershell-docker-host.yml` |
-| `ci-docker-target.yml` | PR / manual | `ci-powershell-docker-target.yml` |
+| `ci-powershell.yml` | PR / manual | Common-PowerShell `ci-powershell.yml` |
+| `ci-powershell-docker-host.yml` | PR / manual | Common-PowerShell `ci-powershell-docker-host.yml` |
+| `ci-powershell-docker-target.yml` | PR / manual | Common-PowerShell `ci-powershell-docker-target.yml` |
 
 Two more thin workflows lint the YAML and Bash surfaces by delegating to
 **Common-Automation**, so the lint config is single-sourced and cannot drift
