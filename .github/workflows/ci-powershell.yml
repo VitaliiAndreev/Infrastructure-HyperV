@@ -1,4 +1,4 @@
-name: CI
+name: Common-PowerShell
 
 on:
   pull_request:
