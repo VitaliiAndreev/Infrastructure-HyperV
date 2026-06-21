@@ -13,8 +13,10 @@ if ($null -ne $Script:SshClient) {
 # Stop the listener first so GetContext() unblocks and the runspace exits
 # before we dispose its hosting powershell instance.
 if ($null -ne $Script:Listener) {
-    try { $Script:Listener.Stop() }  catch { }
-    try { $Script:Listener.Close() } catch { }
+    # Stop/Close throw if the listener already faulted or was disposed; this
+    # is best-effort teardown, so discard whatever they raise.
+    try { $Script:Listener.Stop() }  catch { $null = $_ }
+    try { $Script:Listener.Close() } catch { $null = $_ }
 }
 if ($null -ne $Script:ListenerPS)       { $Script:ListenerPS.Dispose() }
 if ($null -ne $Script:ListenerRunspace) { $Script:ListenerRunspace.Dispose() }

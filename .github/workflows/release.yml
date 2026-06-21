@@ -15,10 +15,12 @@ jobs:
     outputs:
       version_is_new: ${{ steps.check.outputs.version_is_new }}
     steps:
-      - uses: actions/checkout@v5
+      - name: Check out repository
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
-      - id: check
+      - name: Check version is new
+        id: check
         uses: Klark-Morrigan/Common-PowerShell/.github/actions/check-version-is-new@master
         with:
           psd1: 'Infrastructure.HyperV\Infrastructure.HyperV.psd1'
@@ -26,31 +28,25 @@ jobs:
       # Gate the release on the manifest and changelog agreeing. A new
       # version that has not been promoted in CHANGELOG.md fails here,
       # before any tag or publish, so notes can never lag the release.
-      - if: steps.check.outputs.version_is_new == 'true'
+      - name: Assert changelog version
+        if: steps.check.outputs.version_is_new == 'true'
         uses: Klark-Morrigan/Common-PowerShell/.github/actions/assert-changelog-version@master
         with:
           psd1: 'Infrastructure.HyperV\Infrastructure.HyperV.psd1'
           changelog: CHANGELOG.md
 
-  test-unit:
+  # Unit and integration tests both run in ci-powershell.yml now (the
+  # integration job is gated behind the unit job there), so one caller job
+  # covers what used to be three.
+  run-ci:
     needs: check-version
     if: needs.check-version.outputs.version_is_new == 'true'
     uses: Klark-Morrigan/Common-PowerShell/.github/workflows/ci-powershell.yml@master
 
-  test-integration-host:
-    needs: check-version
-    if: needs.check-version.outputs.version_is_new == 'true'
-    uses: Klark-Morrigan/Common-PowerShell/.github/workflows/ci-powershell-docker-host.yml@master
-
-  test-integration-target:
-    needs: check-version
-    if: needs.check-version.outputs.version_is_new == 'true'
-    uses: Klark-Morrigan/Common-PowerShell/.github/workflows/ci-powershell-docker-target.yml@master
-
   # Tag, publish to PSGallery, and cut the GitHub Release in one shared
   # back-end workflow - see release-tail.yml in Common-PowerShell.
   release-tail:
-    needs: [ check-version, test-unit, test-integration-host, test-integration-target ]
+    needs: [ check-version, run-ci ]
     if: needs.check-version.outputs.version_is_new == 'true'
     permissions:
       contents: write

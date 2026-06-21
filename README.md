@@ -151,13 +151,11 @@ git clone https://github.com/Klark-Morrigan/Common-PowerShell .ci-common
 
 ### CI
 
-Three thin CI workflows delegate to Common's reusable workflows:
+A thin CI workflow delegates to Common's reusable workflow:
 
 | Workflow | Trigger | Calls |
 |---|---|---|
-| `ci-powershell.yml` | PR / manual | Common-PowerShell `ci-powershell.yml` |
-| `ci-powershell-docker-host.yml` | PR / manual | Common-PowerShell `ci-powershell-docker-host.yml` |
-| `ci-powershell-docker-target.yml` | PR / manual | Common-PowerShell `ci-powershell-docker-target.yml` |
+| `ci-powershell.yml` | PR / manual | Common-PowerShell `ci-powershell.yml` (unit job, then a Docker integration job gated behind it) |
 
 Two more thin workflows lint the YAML and Bash surfaces by delegating to
 **Common-Automation**, so the lint config is single-sourced and cannot drift

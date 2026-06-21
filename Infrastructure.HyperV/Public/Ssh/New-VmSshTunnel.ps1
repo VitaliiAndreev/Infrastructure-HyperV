@@ -31,6 +31,19 @@
 function New-VmSshTunnel {
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute(
         'PSAvoidUsingPlainTextForPassword', 'JumpPassword')]
+    # The jump leg goes through New-VmSshClient, which needs the plaintext
+    # username/password pair SSH.NET demands; see that function for the
+    # rationale (function-scoped rule, so the suppression ID is empty).
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute(
+        'PSAvoidUsingUsernameAndPasswordParams', '',
+        Justification = 'SSH.NET requires a plaintext username/password pair')]
+    # The Dispose() ScriptMethod below swallows cleanup errors on purpose:
+    # the constituent SSH.NET objects throw on double-dispose or on an
+    # already-dropped session, and the outer caller's finally must not be
+    # derailed by that noise. Suppress the empty-catch rule for the function.
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute(
+        'PSAvoidUsingEmptyCatchBlock', '',
+        Justification = 'Dispose cleanup must not throw out of a finally block')]
     [CmdletBinding()]
     param(
         # IPv4 of the VM behind the jump (the workload VM).

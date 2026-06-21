@@ -45,7 +45,9 @@ Describe 'Assert-SshNetLoaded' {
             # Swallow the type-sanity throw on CI; the assertion is about
             # whether the delegation happened, not about the post-helper
             # branch.
-            try { Assert-SshNetLoaded } catch { }
+            # The post-delegation type-sanity throw is irrelevant here; this
+            # test only asserts the delegation happened. Discard the error.
+            try { Assert-SshNetLoaded } catch { $null = $_ }
 
             Should -Invoke Assert-PsModuleLoaded -Times 1 -Exactly `
                 -ParameterFilter {
