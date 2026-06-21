@@ -38,6 +38,13 @@
 function New-VmSshClient {
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute(
         'PSAvoidUsingPlainTextForPassword', 'Password')]
+    # SSH.NET's PasswordAuthenticationMethod takes the username and password
+    # as plaintext strings; a PSCredential would only be unwrapped here. The
+    # pair is intrinsic to the library contract, so suppress the paired-param
+    # rule (function-scoped: the suppression ID must be empty).
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute(
+        'PSAvoidUsingUsernameAndPasswordParams', '',
+        Justification = 'SSH.NET requires a plaintext username/password pair')]
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]

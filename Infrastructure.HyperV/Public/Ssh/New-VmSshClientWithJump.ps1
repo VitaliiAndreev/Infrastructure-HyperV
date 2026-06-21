@@ -26,6 +26,13 @@
 # ---------------------------------------------------------------------------
 
 function New-VmSshClientWithJump {
+    # Both Dispose() ScriptMethods below swallow cleanup errors on purpose:
+    # the SSH.NET client/tunnel throw on double-dispose or on an already-
+    # dropped session, and the caller's finally must not be derailed by that
+    # noise. Suppress the empty-catch rule for the function.
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute(
+        'PSAvoidUsingEmptyCatchBlock', '',
+        Justification = 'Dispose cleanup must not throw out of a finally block')]
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
