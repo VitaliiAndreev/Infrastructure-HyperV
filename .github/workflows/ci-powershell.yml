@@ -5,5 +5,5 @@ on:
   workflow_dispatch:
 
 jobs:
-  ci:
+  ci-powershell:
     uses: Klark-Morrigan/Common-PowerShell/.github/workflows/ci-powershell.yml@master
