@@ -155,6 +155,7 @@ $ErrorActionPreference = 'Stop'
 . "$PSScriptRoot\Private\PsModules\Assert-PsModuleLoaded.ps1"
 
 . "$PSScriptRoot\Private\Ssh\Assert-SshNetLoaded.ps1"
+. "$PSScriptRoot\Private\Ssh\Set-SshClientKeepAlive.ps1"
 
 # Public functions:
 
