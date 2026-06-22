@@ -12,6 +12,18 @@ history and the tag list.
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-06-22
+
+### Added
+- `Test-VmSshCredential`: single-shot authentication probe that returns
+  `$true` when the password is accepted, `$false` on a definitive
+  rejection, and rethrows a transient/unreachable error unchanged. The
+  auth-level rung above `Test-SshBanner` - a banner-reachable host can
+  still have no usable login (e.g. first-boot user provisioning failed),
+  which only an auth attempt reveals. Connect policy is inherited from
+  `New-VmSshClient` so the probe is indistinguishable from a real session
+  at the transport layer.
+
 ## [1.2.0] - 2026-06-21
 
 ### Added
